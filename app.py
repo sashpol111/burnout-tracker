@@ -9,10 +9,30 @@ from src.llm_advisor import get_burnout_advice, get_burnout_chat_response
 # Load models
 @st.cache_resource
 def load_models():
-    xgb_model = joblib.load('models/xgboost_model.pkl')
-    scaler = joblib.load('models/scaler.pkl')
-    feature_cols = joblib.load('models/feature_cols.pkl')
-    return xgb_model, scaler, feature_cols
+    import os
+    from xgboost import XGBClassifier
+    from sklearn.preprocessing import StandardScaler
+    
+    os.makedirs('models', exist_ok=True)
+    
+    df = load_data()
+    X, y, feature_cols = preprocess(df)
+    X_train, X_temp, y_train, y_temp = __import__('sklearn.model_selection', fromlist=['train_test_split']).train_test_split(X, y, test_size=0.3, random_state=42)
+    X_val, X_test, y_val, y_test = __import__('sklearn.model_selection', fromlist=['train_test_split']).train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
+    
+    scaler = StandardScaler()
+    X_train_s = scaler.fit_transform(X_train)
+    X_val_s = scaler.transform(X_val)
+    
+    model = XGBClassifier(
+        n_estimators=100, max_depth=4, learning_rate=0.05,
+        subsample=0.7, colsample_bytree=0.7, min_child_weight=5,
+        reg_alpha=0.1, reg_lambda=1.0, eval_metric='logloss',
+        early_stopping_rounds=15, random_state=42
+    )
+    model.fit(X_train_s, y_train, eval_set=[(X_val_s, y_val)], verbose=False)
+    
+    return model, scaler, feature_cols
 
 def get_top_risk_factors(user_input, feature_cols, model):
     importance = model.feature_importances_
