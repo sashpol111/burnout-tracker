@@ -32,7 +32,7 @@ Keep your response warm, specific, and actionable. Avoid generic advice."""
 
     response = client.chat.completions.create(
     model="llama-3.3-70b-versatile",
-    messages=[{"role": "system", "content": system_prompt}] + conversation_history,
+    messages=[{"role": "user", "content": prompt}],
     max_tokens=500
     )
     
