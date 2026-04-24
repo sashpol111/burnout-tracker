@@ -97,6 +97,6 @@ Return ONLY the JSON array, no other text."""
     return df
 
 if __name__ == '__main__':
-    df = generate_burnout_entries(n_high=100, n_low=100)
-    print(df.head())
-    print(f"\nBurnout rate: {df['BURNOUT_RISK'].mean():.2%}")
+    df = generate_burnout_entries(n_high=0, n_low=55)
+    print(f"Total entries now: {len(df)}")
+    print(f"Burnout rate: {df['BURNOUT_RISK'].mean():.2%}")
