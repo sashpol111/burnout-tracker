@@ -21,15 +21,17 @@ if __name__ == '__main__':
     X_train, X_val, X_test, y_train, y_val, y_test, scaler = split_and_scale(X, y)
 
     model = XGBClassifier(
-        n_estimators=200,
-        max_depth=6,
-        learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        use_label_encoder=False,
-        eval_metric='logloss',
-        early_stopping_rounds=20,
-        random_state=42
+    n_estimators=100,
+    max_depth=4,
+    learning_rate=0.05,
+    subsample=0.7,
+    colsample_bytree=0.7,
+    min_child_weight=5,
+    reg_alpha=0.1,
+    reg_lambda=1.0,
+    eval_metric='logloss',
+    early_stopping_rounds=15,
+    random_state=42
     )
 
     model.fit(
