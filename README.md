@@ -1,58 +1,175 @@
-# Burnout Risk Tracker
+# 🔥 Burnout Risk Tracker with AI Coaching
 
-A machine learning system that predicts burnout risk from daily lifestyle inputs and provides personalized AI coaching advice.
+Predict your burnout risk and get personalized, AI-powered advice based on your daily lifestyle.
 
-## What it Does
+---
 
-The Burnout Risk Tracker takes a user's daily lifestyle inputs — including stress levels, sleep hours, flow state, vacation usage, and 18 other signals — and predicts their burnout risk using an ensemble of machine learning models. The system then uses a large language model (Llama 3.3 70B via Groq) to generate personalized, actionable advice based on the user's specific risk factors. Users can also chat with an AI burnout coach that maintains conversation history and references their personal risk profile.
+## 🚀 Overview
 
-## Quick Start
+This app helps users understand and prevent burnout by combining:
 
+- ⚡ **Machine Learning (XGBoost)** → predicts burnout risk instantly  
+- 🤖 **AI Coaching (LLaMA 3 via Groq)** → provides personalized advice  
+- 💬 **Interactive Chat** → follow-up questions with an AI coach  
+
+👉 Instead of just predicting risk, the app helps users **take action to improve their well-being**.
+
+---
+
+## ✨ Features
+
+- 🔍 **Burnout Risk Prediction**
+  - Real-time risk score based on lifestyle inputs
+
+- ⚡ **Fast Model Inference**
+  - ~20–30 ms per prediction
+
+- 🤖 **Personalized AI Advice**
+  - Tailored recommendations based on your inputs
+
+- 💬 **AI Coach Chat**
+  - Ask follow-up questions about stress, habits, or burnout
+
+- 📊 **Comprehensive Lifestyle Tracking**
+  - Stress, sleep, habits, social life, health, and more
+
+---
+
+## 🧠 How It Works
+
+1. User inputs lifestyle data (0–10 scale sliders)
+2. Data is scaled and passed into an **XGBoost model**
+3. Model predicts burnout probability
+4. Top contributing factors are identified
+5. LLM generates **personalized coaching advice**
+6. User can chat with an AI coach for deeper insights
+
+---
+
+## 🖥️ App Interface
+
+### Inputs
+
+Users provide daily lifestyle data including:
+
+- Stress level
+- Sleep hours
+- Work productivity
+- Emotional health
+- Physical activity
+- Social connections
+- Life satisfaction metrics
+
+---
+
+### Example Output
+
+**⚡ Model inference time:** 26.41 ms  
+
+**Burnout Risk:**  
+✅ Low Risk: 22.0%
+
+---
+
+### 🤖 AI Coach Advice (Example)
+
+> Your risk score is low, which is great — you're already doing many things right.  
+> However, a few areas could be improved to maintain long-term well-being.
+
+**Top Risk Factors:**
+- Task completion consistency  
+- Sense of achievement  
+- Lack of new experiences  
+
+**Recommendations:**
+- Break tasks into smaller steps to improve completion  
+- Set realistic goals and celebrate progress  
+- Schedule time for new experiences or exploration  
+
+---
+
+## 🏗️ Tech Stack
+
+### Frontend
+- Streamlit
+
+### Machine Learning
+- XGBoost
+- Scikit-learn
+
+### AI / LLM
+- Groq API
+- LLaMA 3 (70B)
+
+### Data & Utilities
+- NumPy
+- Pandas
+- python-dotenv
+
+---
+
+## 📁 Project Structure
+
+```
+burnout-tracker/
+│
+├── app.py
+├── data/
+├── models/
+├── notebooks/
+│
+├── src/
+│   ├── ablation.py
+│   ├── baseline.py
+│   ├── data_loader.py
+│   ├── error_analysis.py
+│   ├── hyperparameter_tuning.py
+│   ├── llm_advisor.py        # AI prompts + chat
+│   ├── synthetic_data.py
+│   ├── train_distilbert.py
+│   ├── train_neural_net.py
+│   ├── train_with_synthetic.py
+│   ├── train_xgboost.py
+│   └── visualize.py
+│
+├── .env
+├── .gitignore
+├── app.py
+├── ATTRIBUTION.md
+├── README.md
+├── requirements.txt
+└── SETUP.md
+```
+
+## ⚙️ Setup
+
+See full setup instructions:
+
+👉 [SETUP.md](./SETUP.md)
+
+### Quick Start
 ```bash
 git clone https://github.com/sashpol111/burnout-tracker.git
 cd burnout-tracker
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run app/app.py
 ```
 
-## Live Demo
+## ⏱ Performance
+Model inference: ~20–30 ms
+AI response time: ~1–3 seconds
 
-**[Try it here → huggingface.co/spaces/sashpol/burnout-tracker](https://huggingface.co/spaces/sashpol/burnout-tracker)**
+## ⚠️ Disclaimer
 
-## Video Links
+This tool is for informational purposes only and is not a substitute for professional medical or psychological advice.
 
-- Demo video: [link]
-- Technical walkthrough: [link]
+## 📚 Attribution
+XGBoost → https://xgboost.readthedocs.io/
+Scikit-learn → https://scikit-learn.org/
+Streamlit → https://streamlit.io/
+Groq → https://groq.com/
 
-## Evaluation
-
-| Model | Test Accuracy | Test F1 | Test AUC |
-|-------|-------------|---------|---------|
-| Baseline (majority class) | 0.755 | 0.000 | 0.500 |
-| XGBoost (Config 1) | 0.974 | 0.946 | 0.997 |
-| XGBoost (Config 2, final) | 0.951 | 0.893 | 0.991 |
-| XGBoost (Config 3) | 0.934 | 0.687 | 0.972 |
-| Neural Network | 0.966 | 0.935 | 0.999 |
-| DistilBERT | 0.878 | 0.753 | 0.925 |
-
-**Ablation Study:**
-
-| Feature Set | Test F1 | Test AUC |
-|-------------|---------|---------|
-| All 22 features | 0.893 | 0.991 |
-| No productivity metrics | 0.819 | 0.975 |
-| Stress/health signals only | 0.541 | 0.852 |
-| No demographics | 0.889 | 0.990 |
-| Top 10 features | 0.767 | 0.955 |
-
-**Synthetic Data:**
-
-| Training Data | Test F1 | Test AUC |
-|--------------|---------|---------|
-| Real data only | 0.893 | 0.991 |
-| Real + synthetic (310 entries) | 0.895 | 0.991 |
-
-## Individual Contributions
-
-- Sasha: [your contributions]
-- [Partner name]: [their contributions]
+## 👩‍💻 Authors
+Sasha Polakov
+Katherine Yu
+GitHub: https://github.com/sashpol111
