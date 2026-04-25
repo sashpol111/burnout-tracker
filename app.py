@@ -2,6 +2,7 @@ import streamlit as st
 import joblib
 import numpy as np
 import sys
+import time
 sys.path.insert(0, '.')
 from src.data_loader import load_data, preprocess, split_and_scale
 from src.llm_advisor import get_burnout_advice, get_burnout_chat_response
@@ -105,8 +106,16 @@ def main():
             input_array = np.array([[user_input[f] for f in feature_cols]])
             input_scaled = scaler.transform(input_array)
             
+            # ⏱️ Start timing
+            start_time = time.perf_counter()
+            
             risk_score = xgb_model.predict_proba(input_scaled)[0][1]
+            
+            # ⏱️ End timing
+            inference_time = time.perf_counter() - start_time
+            
             st.session_state.risk_score = risk_score
+            st.session_state.inference_time = inference_time
             st.session_state.conversation_history = []
             
             top_risk_factors = get_top_risk_factors(user_input, feature_cols, xgb_model)
@@ -117,6 +126,9 @@ def main():
                 st.session_state.risk_context = f"Risk score: {risk_score:.1%}, Top factors: {top_risk_factors}"
 
     with col2:
+        if 'inference_time' in st.session_state:
+            st.caption(f"⚡ Model inference time: {st.session_state.inference_time * 1000:.2f} ms")
+
         if st.session_state.risk_score is not None:
             risk_score = st.session_state.risk_score
             
