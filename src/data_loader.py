@@ -7,7 +7,7 @@ def load_data(path='data/Wellbeing_and_lifestyle_data_Kaggle.csv'):
     df = pd.read_csv(path)
     return df
 
-def preprocess(df):
+def preprocess(df, use_clipping=False):
     # Drop timestamp
     df = df.drop(columns=['Timestamp'])
     
@@ -30,6 +30,14 @@ def preprocess(df):
     feature_cols = [c for c in df.columns if c not in ['WORK_LIFE_BALANCE_SCORE', 'BURNOUT_RISK']]
     X = df[feature_cols]
     y = df['BURNOUT_RISK']
+
+    # Optional outlier handling (percentile clipping)
+    if use_clipping:
+        for col in df.columns:
+            if col not in ['AGE', 'GENDER', 'BMI_RANGE']:
+                lower = df[col].quantile(0.01)
+                upper = df[col].quantile(0.99)
+                df[col] = df[col].clip(lower, upper)
     
     return X, y, feature_cols
 
