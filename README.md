@@ -82,7 +82,7 @@ burnout-tracker/
 
 This tool is for informational purposes only and is not a substitute for professional medical or psychological advice.
 
-## 👩‍💻 Authors
-Sasha Polakov
-Katherine Yu
+## 👩‍💻 Individual Contributions
+Sasha Polakov:
+Katherine Yu:
 GitHub: https://github.com/sashpol111
