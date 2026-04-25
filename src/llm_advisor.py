@@ -5,13 +5,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+MODEL  = "llama-3.3-70b-versatile"
+
 
 def get_burnout_advice(risk_score, top_risk_factors, user_inputs):
-    risk_level = "high" if risk_score > 0.7 else "moderate" if risk_score > 0.4 else "low"
-    
-    factors_str = "\n".join([f"- {k}: {v}" for k, v in top_risk_factors.items()])
-    inputs_str = "\n".join([f"- {k}: {v}" for k, v in user_inputs.items()])
-    
+    risk_level   = "high" if risk_score > 0.7 else "moderate" if risk_score > 0.4 else "low"
+    factors_str  = "\n".join([f"- {k}: {v}" for k, v in top_risk_factors.items()])
+    inputs_str   = "\n".join([f"- {k}: {v}" for k, v in user_inputs.items()])
+
     prompt = f"""You are a burnout prevention coach. A user has completed a burnout risk assessment.
 
 Risk Score: {risk_score:.1%} ({risk_level} risk)
@@ -31,14 +32,25 @@ Please provide:
 Keep your response warm, specific, and actionable. Avoid generic advice."""
 
     response = client.chat.completions.create(
-    model="llama-3.3-70b-versatile",
-    messages=[{"role": "user", "content": prompt}],
-    max_tokens=500
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=500,
     )
-    
     return response.choices[0].message.content
 
+
 def get_burnout_chat_response(conversation_history, user_message, risk_context):
+    """
+    Multi-turn chat with Llama 3.3 70B via Groq.
+
+    The system prompt is passed as the first element of the messages list —
+    this is the correct format for the Groq API (and OpenAI-compatible APIs
+    generally). Passing `system=` as a top-level kwarg is NOT supported and
+    silently fails, which was the original bug causing the chat to not respond.
+
+    Pipeline position: receives XGBoost risk_context (score + top factors)
+    and injects it into every turn so the LLM always has the ML output in view.
+    """
     system_prompt = f"""You are a compassionate burnout prevention coach with expertise in workplace wellness.
 You are having a conversation with someone who has just received their burnout risk assessment.
 
@@ -48,46 +60,55 @@ Their risk context:
 Be empathetic, specific, and practical. Reference their specific data when relevant.
 Keep responses concise (3-5 sentences) unless they ask for more detail."""
 
-    conversation_history.append({
-        "role": "user",
-        "content": user_message
-    })
+    # Build the full message list: system first, then full conversation history
+    messages = [
+        {"role": "system", "content": system_prompt},
+        *conversation_history,
+        {"role": "user",   "content": user_message},
+    ]
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        system=system_prompt,
-        messages=conversation_history,
-        max_tokens=500
+        model=MODEL,
+        messages=messages,
+        max_tokens=500,
     )
 
     reply = response.choices[0].message.content
-    conversation_history.append({
-        "role": "assistant",
-        "content": reply
-    })
 
-    return reply, conversation_history
+    # Append both turns to history so context grows correctly across turns
+    updated_history = conversation_history + [
+        {"role": "user",      "content": user_message},
+        {"role": "assistant", "content": reply},
+    ]
+
+    return reply, updated_history
 
 
 if __name__ == '__main__':
-    print("Starting test...")
-    test_inputs = {
-        "DAILY_STRESS": 8,
-        "SLEEP_HOURS": 5,
-        "LOST_VACATION": 10,
-        "TODO_COMPLETED": 2,
-        "TIME_FOR_PASSION": 0
-    }
-    
-    test_risk_factors = {
-        "DAILY_STRESS (score 8/10)": "Very high stress levels",
-        "SLEEP_HOURS (5hrs)": "Below recommended 7-8 hours",
-        "LOST_VACATION (10 days)": "Not taking needed rest"
-    }
-    
-    try:
-        print("Calling LLM...")
-        advice = get_burnout_advice(0.85, test_risk_factors, test_inputs)
-        print(advice)
-    except Exception as e:
-        print(f"Error: {e}")
+    print("Testing get_burnout_advice...")
+    advice = get_burnout_advice(
+        risk_score=0.85,
+        top_risk_factors={
+            "SLEEP_HOURS": "score 5/10",
+            "WEEKLY_MEDITATION": "score 0/10",
+            "FLOW": "score 2/10",
+        },
+        user_inputs={
+            "SLEEP_HOURS": 5, "WEEKLY_MEDITATION": 0,
+            "TIME_FOR_PASSION": 1, "SOCIAL_NETWORK": 3,
+        },
+    )
+    print(advice)
+
+    print("\nTesting multi-turn chat...")
+    history = []
+    reply, history = get_burnout_chat_response(
+        history, "What should I do first?", "Risk score: 85%, top factor: low sleep"
+    )
+    print(f"Turn 1: {reply}")
+
+    reply, history = get_burnout_chat_response(
+        history, "Can you give me a sleep routine?", "Risk score: 85%, top factor: low sleep"
+    )
+    print(f"Turn 2: {reply}")
+    print(f"History length: {len(history)} messages")
