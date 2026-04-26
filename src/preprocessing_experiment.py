@@ -3,7 +3,7 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 import sys
 sys.path.insert(0, '.')
-from src.data_loader import load_data, preprocess, split_and_scale
+from data.data_loader import load_data, preprocess, split_and_scale
 from src.smote import smote
 from src.hyperparameter_tuning import grid_search
 

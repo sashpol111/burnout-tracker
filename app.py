@@ -3,7 +3,7 @@ import numpy as np
 import sys
 import time
 sys.path.insert(0, '.')
-from src.data_loader import load_data, preprocess, split_and_scale
+from data.data_loader import load_data, preprocess, split_and_scale
 from src.llm_advisor import get_burnout_advice, get_burnout_chat_response
 
 
