@@ -38,7 +38,7 @@ See `SETUP.md` for full installation instructions and API key setup.
 ## Video Links
 
 - **Demo Video:** [\[link here\]](https://youtu.be/ZVWgMImWBQ0)
-- **Technical Walkthrough:** [link here]
+- **Technical Walkthrough:** [\[link here\]](https://youtu.be/gAeA1CKbVUc)
 
 ---
 

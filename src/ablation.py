@@ -112,3 +112,4 @@ if __name__ == '__main__':
     drops = {n: ref_f1 - r[0] for n, r in results.items() if n != 'All features'}
     print(f"\n  Most important group : {max(drops, key=drops.get)}")
     print(f"  Least important group: {min(drops, key=drops.get)}")
+
