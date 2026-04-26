@@ -97,7 +97,7 @@ burnout-tracker/
 ## Individual Contributions
 
 **Sasha Polakov:**
-[describe contributions]
+Designed and built the initial project architecture and folder structure. Developed the XGBoost training pipeline with regularization. Built the neural network from scratch in PyTorch with batch normalization, dropout, and learning rate scheduling. Integrated the Groq LLM API and designed the multi-turn coaching system. Built the Streamlit app interface with all slider inputs, risk meter, and chat UI. Generated synthetic training data via LLM API calls. Fine-tuned DistilBERT on burnout text descriptions. Designed and ran the ablation study across five feature group conditions. Deployed the application to Hugging Face Spaces.
 
 **Katherine Yu:**
 Redesigned the target variable construction after identifying circular leakage, implemented custom SMOTE, and developed the preprocessing experiment pipeline. Built the three-source unified dataset pipeline integrating Kaggle, Groq, and HuggingFace APIs. Applied feature engineering to construct domain-motivated composite features. Reworked LLM integration to fix multi-turn context management and corrected errors in regularization and feature group ablation. Coded hyperparameter grid search and error analysis.
