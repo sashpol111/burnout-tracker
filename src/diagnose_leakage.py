@@ -1,18 +1,60 @@
 # Documents the design decision to replace WORK_LIFE_BALANCE_SCORE with a burnout composite target.
+# Run with: python src/diagnose_leakage.py
+# Run with force redownload: python src/diagnose_leakage.py --redownload
 
+import os
+import sys
+import glob
+import shutil
+import argparse
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
-import sys
+from dotenv import load_dotenv
+
+load_dotenv()
 sys.path.insert(0, '.')
 
-from data.data_loader import BURNOUT_SYMPTOM_COLS
+BURNOUT_SYMPTOM_COLS = ['DAILY_STRESS', 'DAILY_SHOUTING', 'LOST_VACATION']
+KAGGLE_PATH = 'data/Wellbeing_and_lifestyle_data_Kaggle.csv'
 
 
-def run_leakage_diagnostic():
-    df = pd.read_csv('data/Wellbeing_and_lifestyle_data_Kaggle.csv')
+def download_kaggle_csv():
+
+    username = os.getenv('KAGGLE_USERNAME')
+    key      = os.getenv('KAGGLE_KEY')
+    if not username or not key:
+        raise RuntimeError(
+            "KAGGLE_USERNAME and KAGGLE_KEY must be set in your .env file.\n"
+            "Get them from kaggle.com/settings/account -> Create New API Token."
+        )
+
+    os.environ['KAGGLE_USERNAME'] = username
+    os.environ['KAGGLE_KEY']      = key
+
+    import kagglehub
+    print("Downloading from Kaggle API...")
+    dl   = kagglehub.dataset_download('ydalat/lifestyle-and-wellbeing-data')
+    csvs = glob.glob(os.path.join(dl, '**', '*.csv'), recursive=True)
+    if not csvs:
+        raise FileNotFoundError("No CSV found in downloaded dataset")
+    os.makedirs('data', exist_ok=True)
+    shutil.copy(csvs[0], KAGGLE_PATH)
+    print(f"  Saved to {KAGGLE_PATH}")
+
+
+def load_raw_kaggle(force=False):
+    if force or not os.path.exists(KAGGLE_PATH):
+        download_kaggle_csv()
+    else:
+        print(f"Using cached file: {KAGGLE_PATH}")
+    return pd.read_csv(KAGGLE_PATH)
+
+
+def run_leakage_diagnostic(force_download=False):
+    df = load_raw_kaggle(force=force_download)
 
     df = df.drop(columns=['Timestamp'], errors='ignore')
     df['GENDER'] = df['GENDER'].map({'Female': 0, 'Male': 1})
@@ -23,7 +65,7 @@ def run_leakage_diagnostic():
     all_features = [c for c in df.columns
                     if c not in ['WORK_LIFE_BALANCE_SCORE'] + BURNOUT_SYMPTOM_COLS]
 
-    # test 1: check if features linearly reconstruct WORK_LIFE_BALANCE_SCORE
+    # Test 1: can features linearly reconstruct WORK_LIFE_BALANCE_SCORE?
     X    = df[all_features].values
     y    = df['WORK_LIFE_BALANCE_SCORE'].values
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -36,7 +78,7 @@ def run_leakage_diagnostic():
     print(f"  R² = {r2:.4f}")
     print(f"  {'LEAK CONFIRMED — trivial classification task' if r2 > 0.99 else 'No leakage detected'}")
 
-    # test 2: check if features reconstruct the burnout composite
+    # Test 2: can features reconstruct the burnout composite?
     burnout_index = df[BURNOUT_SYMPTOM_COLS].sum(axis=1).values
     feat_vals     = df[all_features].values
     X_tr2, X_te2, y_tr2, y_te2 = train_test_split(
@@ -47,7 +89,7 @@ def run_leakage_diagnostic():
     print(f"  R² = {r2_new:.4f}")
     print(f"  {'OK — genuine prediction task' if r2_new < 0.5 else 'WARNING — check target construction'}")
 
-    # test 3: class balance of new binary target (top 30%)
+    # Test 3: class balance of new binary target (top 30%)
     threshold    = pd.Series(burnout_index).quantile(0.70)
     burnout_risk = (burnout_index >= threshold).astype(int)
     pos_rate     = burnout_risk.mean()
@@ -70,4 +112,8 @@ def run_leakage_diagnostic():
 
 
 if __name__ == '__main__':
-    run_leakage_diagnostic()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--redownload', action='store_true',
+                        help='Force re-download of Kaggle CSV even if cached')
+    args = parser.parse_args()
+    run_leakage_diagnostic(force_download=args.redownload)
