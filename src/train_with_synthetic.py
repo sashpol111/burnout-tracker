@@ -32,7 +32,7 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, X_test, y_test, label):
     return acc, f1, auc
 
 if __name__ == '__main__':
-    # Load real data
+    # load real data
     df_real = load_data()
     X_real, y_real, feature_cols = preprocess(df_real)
     
@@ -42,10 +42,10 @@ if __name__ == '__main__':
     print(f"\n{'Model':40s} | Acc   | F1    | AUC")
     print("-" * 65)
     
-    # Baseline: real data only
+    # baseline: real data only
     train_and_evaluate(X_train, y_train, X_val, y_val, X_test, y_test, "Real data only")
     
-    # Load synthetic data
+    # synthetic data
     df_syn = pd.read_csv('data/synthetic_burnout_data.csv')
     df_syn = df_syn[feature_cols + ['BURNOUT_RISK']]
     df_syn = df_syn.apply(pd.to_numeric, errors='coerce').dropna()
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     X_syn = df_syn[feature_cols]
     y_syn = df_syn['BURNOUT_RISK']
     
-    # Augmented: real + synthetic training data
+    # augmented: real + synthetic training data
     X_train_aug = pd.concat([X_train, X_syn], ignore_index=True)
     y_train_aug = pd.concat([y_train, y_syn], ignore_index=True)
     

@@ -6,13 +6,13 @@ from sklearn.preprocessing import StandardScaler
 BURNOUT_SYMPTOM_COLS = ['DAILY_STRESS', 'DAILY_SHOUTING', 'LOST_VACATION']
 TARGET_ADJACENT_COLS = BURNOUT_SYMPTOM_COLS + ['WORK_LIFE_BALANCE_SCORE', 'BURNOUT_RISK']
 
-# Features with valid range [1, 10] — 0 is an impossible response
+# features that should never be 0 (e.g. BMI, social network)
 LIKERT_1_10 = [
     'PERSONAL_AWARDS', 'WEEKLY_MEDITATION', 'SLEEP_HOURS',
     'SOCIAL_NETWORK', 'TODO_COMPLETED', 'CORE_CIRCLE', 'SUPPORTING_OTHERS',
     'SUFFICIENT_INCOME', 'BMI_RANGE',
 ]
-# Features with valid range [0, 10] — 0 is a valid response
+# features where 0 is a valid response (e.g. no meditation sessions)
 LIKERT_0_10 = [
     'TIME_FOR_PASSION', 'ACHIEVEMENT', 'DONATION', 'FLOW',
     'LIVE_VISION', 'PLACES_VISITED', 'FRUITS_VEGGIES',
@@ -27,16 +27,14 @@ def load_data(path='data/unified_dataset.csv',
 
     use_unified=False (default):
         Load the Kaggle wellness survey CSV directly.
-        Fast, no API calls needed. preprocess() will encode categoricals,
-        derive the burnout label, and engineer features.
+        Fast, no API calls needed. preprocess() handles encoding,
+        label derivation, and feature engineering.
 
     use_unified=True:
         Build the unified dataset from all three API sources:
           - Kaggle API    (structured wellness survey)
           - Groq API      (LLM-generated synthetic profiles)
           - HuggingFace   (annotated mental health posts)
-        The unified dataset is pre-processed (numeric features, BURNOUT_RISK
-        already computed). preprocess() detects this and skips those steps.
         Results cached to data/unified_dataset.csv after first build.
         Pass force_rebuild=True to re-fetch from APIs.
     """
@@ -50,25 +48,20 @@ def load_data(path='data/unified_dataset.csv',
 
 def preprocess(df, use_domain_cleaning=False):
     """
-    Preprocessing pipeline — handles both Kaggle raw data and unified dataset.
+    Handles both Kaggle raw data and the unified dataset.
 
-    Detects which source it's working with:
+    Detects which format it's working with:
       - Kaggle raw: has 'Timestamp', string GENDER/AGE, symptom columns
-      - Unified:    already numeric, BURNOUT_RISK already computed
+      - Unified: already numeric, BURNOUT_RISK already computed
 
-    Intervention 1 – adaptive domain-bounds validation
-    ───────────────────────────────────────────────────
-    Likert-scale columns clamped to valid ranges [0,10] or [1,10].
-    Adaptive guard skips columns where >5% OOR (different natural scale).
-
-    Intervention 2 – threshold tuning for class imbalance
-    ──────────────────────────────────────────────────────
-    Applied in preprocessing_experiment.py on the val set only.
+    Two data quality interventions:
+    1. Adaptive domain cleaning: clamps Likert values to valid ranges,
+       but skips columns where >5% are out of range (likely different scale).
+    2. Threshold tuning for class imbalance: applied in
+       preprocessing_experiment.py on val set only.
     """
 
-    # ── Detect source and normalise accordingly ───────────────────────── #
-    # Kaggle raw: has Timestamp column, string GENDER/AGE, symptom columns
-    # Unified:    already numeric, BURNOUT_RISK already present, no Timestamp
+    # figure out which data source we're dealing with
     is_kaggle_raw = (
         'Timestamp' in df.columns or
         ('GENDER' in df.columns and df['GENDER'].dtype == object) or
@@ -77,7 +70,6 @@ def preprocess(df, use_domain_cleaning=False):
     )
 
     if is_kaggle_raw:
-        # ── Kaggle raw data: needs full encoding + label derivation ──── #
         df = df.drop(columns=['Timestamp'], errors='ignore')
 
         if 'GENDER' in df.columns and df['GENDER'].dtype == object:
@@ -91,11 +83,10 @@ def preprocess(df, use_domain_cleaning=False):
         df = df.apply(pd.to_numeric, errors='coerce')
         df = df.dropna()
 
-        # Domain cleaning on raw survey data
         if use_domain_cleaning:
             _apply_domain_cleaning(df)
 
-        # Derive burnout label from symptom composite
+        # burnout label: top 30% of symptom composite score which is based on Maslach's three burnout dimensions
         burnout_index      = df[BURNOUT_SYMPTOM_COLS].sum(axis=1)
         threshold          = burnout_index.quantile(0.70)
         df['BURNOUT_RISK'] = (burnout_index >= threshold).astype(int)
@@ -105,12 +96,10 @@ def preprocess(df, use_domain_cleaning=False):
               f"class ratio 1:{(1-pos_rate)/pos_rate:.1f}")
 
     else:
-        # ── Unified dataset: already numeric, BURNOUT_RISK already set ── #
-        df = df.drop(columns=['source'], errors='ignore')  # text col → drop before coerce
+        df = df.drop(columns=['source'], errors='ignore')
         df = df.apply(pd.to_numeric, errors='coerce')
         df = df.dropna()
 
-        # Domain cleaning still valid — synthetic/HF values may drift
         if use_domain_cleaning:
             _apply_domain_cleaning(df)
 
@@ -119,7 +108,7 @@ def preprocess(df, use_domain_cleaning=False):
               f"positive rate={pos_rate:.1%} | "
               f"class ratio 1:{(1-pos_rate)/pos_rate:.1f}")
 
-    # ── Feature engineering (same for both sources) ───────────────────── #
+    # feature engineering: composite scores from domain knowledge
     df['RECOVERY_SCORE']       = (df['SLEEP_HOURS']
                                    + df['TIME_FOR_PASSION']
                                    + df['WEEKLY_MEDITATION'])
@@ -136,9 +125,10 @@ def preprocess(df, use_domain_cleaning=False):
 
 def _apply_domain_cleaning(df):
     """
-    Adaptive domain-bounds validation — modifies df in place.
-    Only clamps columns where OOR rate < MAX_OOR_RATE (genuine errors,
-    not a different natural scale).
+    Clamps out-of-range Likert values to their valid bounds.
+    Skips columns where too many values are out of range — likely
+    a different natural scale, not a data entry error.
+    Modifies df in place.
     """
     total_fixed, clamped_cols, skipped_cols = 0, [], []
 

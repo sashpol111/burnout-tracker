@@ -18,7 +18,7 @@ if __name__ == '__main__':
     X, y, feature_cols = preprocess(df)
     X_train, X_val, X_test, y_train, y_val, y_test, scaler = split_and_scale(X, y)
 
-    # Majority class baseline
+    # majority class baseline
     dummy = DummyClassifier(strategy='most_frequent')
     dummy.fit(X_train, y_train)
     print("=== Baseline (majority class) ===")

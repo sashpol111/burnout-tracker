@@ -28,7 +28,7 @@ from src.preprocessing_experiment import find_best_threshold
 
 
 def run_error_analysis():
-    # ── Train production model ─────────────────────────────────────────── #
+    # training the production model
     df = load_data()
     X, y, feature_cols = preprocess(df, use_domain_cleaning=True)
     X_train, X_val, X_test, y_train, y_val, y_test, _ = split_and_scale(X, y)
@@ -43,13 +43,13 @@ def run_error_analysis():
     )
     model.fit(X_train_s, y_train_s, eval_set=[(X_val, y_val)], verbose=False)
 
-    # Tuned threshold — identical to production deployment
+    # tuned threshold
     val_proba = model.predict_proba(X_val)[:, 1]
     threshold, _ = find_best_threshold(y_val, val_proba)
     proba = model.predict_proba(X_test)[:, 1]
     preds = (proba >= threshold).astype(int)
 
-    # ── Error dataframe ────────────────────────────────────────────────── #
+    # this is the Error dataframe
     test_df = pd.DataFrame(X_test, columns=feature_cols)
     test_df['true']  = y_test.values
     test_df['pred']  = preds
@@ -62,13 +62,13 @@ def run_error_analysis():
 
     cm = confusion_matrix(y_test, preds)
 
-    # Features where missed cases differ most from caught cases
+    # features where missed cases differ most from caught cases
     base_feats = [c for c in feature_cols if c not in
                   ['RECOVERY_SCORE','SOCIAL_SUPPORT_SCORE','LIFESTYLE_SCORE','HEALTH_HABITS']]
     diff       = (fn[base_feats].mean() - tp[base_feats].mean()).abs().sort_values(ascending=False)
     hard_feats = diff.head(6).index.tolist()
 
-    # Borderline vs confident accuracy
+    # borderline vs confident accuracy
     margin     = 0.10
     borderline = test_df[(test_df['proba'] >= threshold-margin) &
                           (test_df['proba'] <= threshold+margin)]
@@ -79,7 +79,6 @@ def run_error_analysis():
     print(f"Threshold: {threshold:.2f} | FN: {len(fn)} | FP: {len(fp)}")
     print(classification_report(y_test, preds, target_names=['Low Risk','High Risk']))
 
-    # ── Figure: 2×2 ───────────────────────────────────────────────────── #
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     fig.suptitle(
         f'Error Analysis — Burnout Risk Classifier\n'
@@ -88,7 +87,6 @@ def run_error_analysis():
         fontsize=12, fontweight='bold'
     )
 
-    # ── ① Confusion matrix ────────────────────────────────────────────── #
     ax = axes[0, 0]
     im = ax.imshow(cm, cmap='Blues')
     ax.set_title('① Failure Counts\nConfusion matrix at tuned threshold',
@@ -105,7 +103,6 @@ def run_error_analysis():
                     color=color, fontsize=11, fontweight='bold')
     plt.colorbar(im, ax=ax, fraction=0.04)
 
-    # ── ② Probability distributions — WHY the model fails ────────────── #
     ax = axes[0, 1]
     ax.set_title('② Why the Model Fails\nBoth error types cluster near the decision boundary',
                  fontweight='bold')
@@ -124,7 +121,6 @@ def run_error_analysis():
                 fontsize=8, color='black',
                 bbox=dict(boxstyle='round,pad=0.3', facecolor='lightyellow', alpha=0.8))
 
-    # ── ③ Feature profiles — WHAT inputs are hardest ─────────────────── #
     ax = axes[1, 0]
     ax.set_title('③ Most Challenging Input Types\n'
                  'Features where missed cases differ most from correctly caught cases',
@@ -154,7 +150,6 @@ def run_error_analysis():
                 fontsize=8,
                 bbox=dict(boxstyle='round,pad=0.3', facecolor='lightyellow', alpha=0.8))
 
-    # ── ④ Borderline vs confident accuracy ───────────────────────────── #
     ax = axes[1, 1]
     ax.set_title('④ Hardest Input Zone\n'
                  'Accuracy collapses near the decision boundary',

@@ -14,7 +14,6 @@ from src.data_loader import load_data, preprocess, BURNOUT_SYMPTOM_COLS
 df = load_data()
 X, y, feature_cols = preprocess(df)
 
-# ── 1. Can features linearly reconstruct the burnout_index? ──────────────────
 df_enc = load_data()
 df_enc = df_enc.drop(columns=['Timestamp'])
 df_enc['GENDER'] = df_enc['GENDER'].map({'Female': 0, 'Male': 1})
@@ -33,12 +32,11 @@ r2 = r2_score(y_te, lr.predict(X_te))
 print(f"Linear R² of burnout_index ~ wellness features: {r2:.4f}")
 print(f"  → {'LEAK DETECTED — check target construction' if r2 > 0.9 else 'OK — target is not reconstructible from features'}")
 
-# ── 2. Class balance ──────────────────────────────────────────────────────────
+
 print(f"\nClass distribution:")
 print(y.value_counts().rename({0: 'Low risk', 1: 'High risk'}).to_string())
 print(f"Positive rate: {y.mean():.1%}")
 
-# ── 3. Borderline ambiguity ───────────────────────────────────────────────────
 threshold = burnout_index.quantile(0.70)
 margin    = burnout_index.std() * 0.10
 border    = ((burnout_index - threshold).abs() < margin).mean()

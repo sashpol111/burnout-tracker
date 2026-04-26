@@ -68,31 +68,31 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    # Load and prepare data
+    # load and prepare data
     df = load_data()
     X, y, feature_cols = preprocess(df)
     
-    # Reconstruct original df with feature names for text generation
+    # reconstruct original df with feature names for text generation
     df_processed = pd.DataFrame(X, columns=feature_cols)
     df_processed['BURNOUT_RISK'] = y.values
     
-    # Convert to text
+    # convert to text
     print("Converting data to text descriptions...")
     texts = [row_to_text(row, feature_cols) for _, row in df_processed.iterrows()]
     labels = df_processed['BURNOUT_RISK'].values.tolist()
     
-    # Use subset for speed - 3000 samples
+    # use subset for speed around 3000 samples
     idx = np.random.choice(len(texts), 3000, replace=False)
     texts = [texts[i] for i in idx]
     labels = [labels[i] for i in idx]
     
-    # Split
+    # splitting
     X_train, X_temp, y_train, y_temp = train_test_split(texts, labels, test_size=0.3, random_state=42)
     X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
     
     print(f"Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}")
     
-    # Tokenize
+    # tokenizing
     print("Loading DistilBERT tokenizer...")
     tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
     
@@ -104,14 +104,14 @@ if __name__ == '__main__':
     val_loader = DataLoader(val_dataset, batch_size=32)
     test_loader = DataLoader(test_dataset, batch_size=32)
     
-    # Load model
+    # loading model
     print("Loading DistilBERT model...")
     model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=2)
     model = model.to(device)
     
     optimizer = AdamW(model.parameters(), lr=2e-5, weight_decay=0.01)
     
-    # Training
+    # training
     best_val_f1 = 0
     for epoch in range(5):
         model.train()
@@ -136,7 +136,7 @@ if __name__ == '__main__':
             best_val_f1 = val_f1
             torch.save(model.state_dict(), 'models/best_distilbert.pt')
     
-    # Final evaluation
+    # final evaluation
     model.load_state_dict(torch.load('models/best_distilbert.pt'))
     test_acc, test_f1, test_auc = evaluate(model, test_loader, device)
     print(f"\n=== DistilBERT Results ===")

@@ -60,7 +60,7 @@ Their risk context:
 Be empathetic, specific, and practical. Reference their specific data when relevant.
 Keep responses concise (3-5 sentences) unless they ask for more detail."""
 
-    # Build the full message list: system first, then full conversation history
+    # building full message list
     messages = [
         {"role": "system", "content": system_prompt},
         *conversation_history,
@@ -75,7 +75,7 @@ Keep responses concise (3-5 sentences) unless they ask for more detail."""
 
     reply = response.choices[0].message.content
 
-    # Append both turns to history so context grows correctly across turns
+    # append both turns to history so context grows correctly across turns
     updated_history = conversation_history + [
         {"role": "user",      "content": user_message},
         {"role": "assistant", "content": reply},

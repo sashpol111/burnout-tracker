@@ -1,39 +1,33 @@
 """
 data_pipeline.py
 
-Unified data collection pipeline integrating three independent sources:
+Pulls training data from three independent sources and merges them
+into a single unified dataset.
 
-  Source 1 — Kaggle Wellness Survey (kaggle API)
-    Downloads Wellbeing_and_lifestyle_data_Kaggle.csv programmatically
-    via the Kaggle API. Structured survey data, ~16k respondents.
+  Source 1 — Kaggle Wellness Survey
+    Downloads the lifestyle survey dataset via the Kaggle API.
+    About 16k structured survey responses.
 
-  Source 2 — LLM-Generated Synthetic Profiles (Groq API)
-    Llama 3.3 70B generates realistic burnout/wellness profiles as JSON,
-    providing balanced training examples with explicit burnout labels.
-    Addresses class imbalance at the data level.
+  Source 2 — LLM-Generated Synthetic Profiles
+    Uses Llama 3.3 70B to generate realistic burnout/wellness profiles.
+    Helps balance the training set with explicit burnout labels.
 
-  Source 3 — HuggingFace Mental Health Posts (HF Datasets API)
-    Loads solomonk/reddit_mental_health_posts, filters to burnout-
-    relevant content, and uses Llama 3.3 70B to extract wellness
-    feature values from free-form text via structured JSON annotation.
-    Provides real-world cross-domain validation data.
+  Source 3 — HuggingFace Mental Health Posts
+    Loads reddit mental health posts, filters for burnout-relevant content,
+    then uses Llama 3.3 70B to extract wellness feature values from
+    free-form text. Real-world cross-domain data.
 
-All three sources are normalised to the same feature schema and merged
-into a single DataFrame returned by build_unified_dataset().
-
-Rubric: "Collected or constructed original dataset through substantial
-engineering effort (API integration, web scraping, manual annotation)
-with documented methodology" (10 pts)
+All three sources get normalized to the same feature schema before merging.
 
 Setup:
   pip install kaggle datasets
   Add to .env:
     KAGGLE_USERNAME=your_username
-    KAGGLE_KEY=your_api_key        (from kaggle.com/settings/account)
+    KAGGLE_KEY=your_api_key
     GROQ_API_KEY=your_groq_key
 
 Usage:
-  python src/data_pipeline.py            # builds and saves unified dataset
+  python src/data_pipeline.py
   from src.data_pipeline import build_unified_dataset
 """
 import os, json, time
@@ -48,10 +42,7 @@ groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
 os.makedirs('data',   exist_ok=True)
 os.makedirs('models', exist_ok=True)
 
-# ── Shared feature schema ─────────────────────────────────────────────────── #
-# All three sources are normalised to these columns before merging.
-# BURNOUT_RISK is the target (1 = high risk, 0 = low risk).
-# WORK_LIFE_BALANCE_SCORE is excluded — it's the leaking composite from Kaggle.
+# BURNOUT_RISK is the target. WORK_LIFE_BALANCE_SCORE is excluded because it leaked into the original label design.
 FEATURE_COLS = [
     'FRUITS_VEGGIES', 'PLACES_VISITED', 'CORE_CIRCLE', 'SUPPORTING_OTHERS',
     'SOCIAL_NETWORK', 'ACHIEVEMENT', 'DONATION', 'BMI_RANGE', 'TODO_COMPLETED',
@@ -60,7 +51,7 @@ FEATURE_COLS = [
 ]
 TARGET_COL  = 'BURNOUT_RISK'
 
-# Features Llama should estimate from text
+# What we ask Llama to estimate from text
 LLAMA_FEATURE_PROMPT = '\n'.join([
     '  "SLEEP_HOURS": 0-10 scale (0=no sleep, 10=excellent sleep)',
     '  "WEEKLY_MEDITATION": 0-10 (0=never, 10=daily)',
@@ -86,18 +77,13 @@ LLAMA_FEATURE_PROMPT = '\n'.join([
 BURNOUT_SYMPTOM_COLS = ['DAILY_STRESS', 'DAILY_SHOUTING', 'LOST_VACATION']
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SOURCE 1 — Kaggle API
-# ══════════════════════════════════════════════════════════════════════════════
-
 def load_kaggle_source():
     """
-    Downloads the Kaggle wellness dataset programmatically via the Kaggle API.
+    Downloads the Kaggle wellness dataset via the Kaggle API.
     Falls back to local CSV if already downloaded.
 
-    Returns cleaned DataFrame with BURNOUT_RISK label derived from
-    burnout symptom composite (top 30% of DAILY_STRESS + DAILY_SHOUTING
-    + LOST_VACATION).
+    Burnout label is derived from the symptom composite:
+    top 30% of (DAILY_STRESS + DAILY_SHOUTING + LOST_VACATION).
     """
     csv_path = 'data/Wellbeing_and_lifestyle_data_Kaggle.csv'
 
@@ -105,9 +91,7 @@ def load_kaggle_source():
         print("Downloading Kaggle dataset via kagglehub API...")
         try:
             import kagglehub
-            # kagglehub uses KAGGLE_USERNAME + KAGGLE_KEY from .env automatically
             path = kagglehub.dataset_download('ydalat/lifestyle-and-wellbeing-data')
-            # Find the CSV in the downloaded path
             import glob, shutil
             csvs = glob.glob(os.path.join(path, '**', '*.csv'), recursive=True)
             if not csvs:
@@ -121,27 +105,23 @@ def load_kaggle_source():
                 "and KAGGLE_KEY in your .env (from kaggle.com/settings/account)."
             )
     else:
-        print("Kaggle CSV already present — loading from disk")
+        print("Kaggle CSV already present, loading from disk")
 
     df = pd.read_csv(csv_path)
     df = df.drop(columns=['Timestamp'], errors='ignore')
 
-    # Encode categoricals
     df['GENDER'] = df['GENDER'].map({'Female': 0, 'Male': 1})
     df['AGE']    = df['AGE'].map({'Less than 20': 0, '21 to 35': 1,
                                    '36 to 50': 2,   '51 or more': 3})
     df = df.apply(pd.to_numeric, errors='coerce').dropna()
 
-    # Derive burnout label from symptom composite
     burnout_index      = df[BURNOUT_SYMPTOM_COLS].sum(axis=1)
     threshold          = burnout_index.quantile(0.70)
     df[TARGET_COL]     = (burnout_index >= threshold).astype(int)
 
-    # Keep only shared feature cols + target
     available = [c for c in FEATURE_COLS if c in df.columns]
     df        = df[available + [TARGET_COL]].copy()
 
-    # Fill any missing feature cols with midpoint
     for col in FEATURE_COLS:
         if col not in df.columns:
             df[col] = 5
@@ -151,18 +131,11 @@ def load_kaggle_source():
     return df[FEATURE_COLS + [TARGET_COL, 'source']]
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SOURCE 2 — Groq API (synthetic profiles)
-# ══════════════════════════════════════════════════════════════════════════════
-
 def generate_synthetic_source(n_high=50, n_low=50):
     """
-    Generates synthetic burnout/wellness profiles via Llama 3.3 70B.
-    Returns DataFrame with BURNOUT_RISK labels.
-
-    The LLM is prompted with realistic distributions for high/low burnout
-    based on Maslach burnout dimensions (exhaustion, depersonalisation,
-    reduced accomplishment).
+    Generates synthetic burnout profiles via Llama 3.3 70B.
+    High-risk profiles follow Maslach burnout patterns (high stress,
+    low sleep, low flow). Low-risk profiles are the inverse.
     """
     print(f"Generating {n_high} high-risk + {n_low} low-risk synthetic profiles...")
 
@@ -229,20 +202,16 @@ Return ONLY the JSON array, no explanation, no markdown."""
     return df
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SOURCE 3 — HuggingFace Datasets API + LLM annotation
-# ══════════════════════════════════════════════════════════════════════════════
-
 def load_huggingface_source(max_posts=80):
     """
-    Loads mental health posts from HuggingFace Datasets API and annotates
-    them with wellness feature values using Llama 3.3 70B.
+    Loads mental health posts from HuggingFace and uses Llama to extract
+    wellness feature values from free-form text.
 
-    Engineering steps:
-      1. HuggingFace API call — programmatic dataset access
-      2. Keyword filtering — select burnout-relevant posts
-      3. LLM annotation — extract 19 feature values from free-form text
-      4. Range validation — clip all values to valid bounds
+    Steps:
+      1. Pull dataset via HuggingFace Datasets API
+      2. Filter to burnout-relevant posts by keyword
+      3. LLM annotation: extract 19 feature values per post
+      4. Clip all values to valid ranges
     """
     print(f"Loading HuggingFace dataset (solomonk/reddit_mental_health_posts)...")
     try:
@@ -251,7 +220,7 @@ def load_huggingface_source(max_posts=80):
         hf_df = ds.to_pandas()
     except Exception as e:
         print(f"  HuggingFace load failed: {e}")
-        print("  Skipping HuggingFace source — install with: pip install datasets")
+        print("  Skipping HuggingFace source, install with: pip install datasets")
         return pd.DataFrame()
 
     text_col  = next((c for c in ['text', 'selftext', 'body'] if c in hf_df.columns),
@@ -263,10 +232,8 @@ def load_huggingface_source(max_posts=80):
     else:
         hf_df['full_text'] = hf_df[text_col].fillna('')
 
-    # Filter to minimum length
     hf_df = hf_df[hf_df['full_text'].str.len() >= 150]
 
-    # Prioritise burnout-relevant posts
     keywords   = ['burnout', 'burn out', 'exhausted', 'overworked', 'stressed',
                   'overwhelmed', 'cant cope', "can't cope", 'work stress']
     kw_mask    = hf_df['full_text'].str.lower().str.contains('|'.join(keywords), na=False)
@@ -321,7 +288,7 @@ Respond ONLY with valid JSON. No markdown."""
         if feat is None:
             failed += 1
             continue
-        # Infer burnout label: high burnout if low sleep + low flow + low achievement
+        # Infer burnout label from low sleep + low flow + low achievement
         burnout_score = (10 - feat['SLEEP_HOURS']) + (10 - feat['FLOW']) + (10 - feat['ACHIEVEMENT'])
         feat[TARGET_COL] = 1 if burnout_score > 18 else 0
         feat['source']   = 'huggingface'
@@ -336,10 +303,6 @@ Respond ONLY with valid JSON. No markdown."""
     return df
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# UNIFIED PIPELINE
-# ══════════════════════════════════════════════════════════════════════════════
-
 def build_unified_dataset(
     use_kaggle=True,
     use_synthetic=True,
@@ -351,22 +314,9 @@ def build_unified_dataset(
     force_rebuild=False,
 ):
     """
-    Merges all three data sources into a single unified dataset.
-
-    Parameters
-    ----------
-    use_kaggle       : include Kaggle wellness survey data
-    use_synthetic    : include LLM-generated synthetic profiles
-    use_huggingface  : include HuggingFace mental health posts
-    n_synthetic_high : number of synthetic high-risk profiles to generate
-    n_synthetic_low  : number of synthetic low-risk profiles to generate
-    n_hf_posts       : number of HuggingFace posts to annotate
-    save_path        : where to cache the unified dataset
-    force_rebuild    : ignore cached CSV and rebuild from APIs
-
-    Returns
-    -------
-    pd.DataFrame with FEATURE_COLS + BURNOUT_RISK + source columns
+    Merges all three data sources into one unified dataset.
+    Caches to CSV after first build so API calls don't repeat.
+    Pass force_rebuild=True to re-fetch everything from scratch.
     """
     if not force_rebuild and os.path.exists(save_path):
         print(f"Loading cached unified dataset from {save_path}")
@@ -382,21 +332,21 @@ def build_unified_dataset(
     parts = []
 
     if use_kaggle:
-        print("\n── Source 1: Kaggle API ──")
+        print("\nSource 1: Kaggle API")
         try:
             parts.append(load_kaggle_source())
         except Exception as e:
             print(f"  Kaggle source failed: {e}")
 
     if use_synthetic:
-        print("\n── Source 2: Groq API (synthetic) ──")
+        print("\nSource 2: Groq API (synthetic)")
         try:
             parts.append(generate_synthetic_source(n_synthetic_high, n_synthetic_low))
         except Exception as e:
             print(f"  Synthetic source failed: {e}")
 
     if use_huggingface:
-        print("\n── Source 3: HuggingFace Datasets API ──")
+        print("\nSource 3: HuggingFace Datasets API")
         try:
             hf = load_huggingface_source(n_hf_posts)
             if len(hf) > 0:
@@ -410,7 +360,6 @@ def build_unified_dataset(
     unified = pd.concat(parts, ignore_index=True)
     unified = unified.dropna(subset=FEATURE_COLS)
 
-    # Ensure correct dtypes
     for col in FEATURE_COLS + [TARGET_COL]:
         unified[col] = pd.to_numeric(unified[col], errors='coerce').fillna(0)
 

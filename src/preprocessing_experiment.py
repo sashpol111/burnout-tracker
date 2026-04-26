@@ -7,11 +7,7 @@ from src.data_loader import load_data, preprocess, split_and_scale
 from src.smote import smote
 from src.hyperparameter_tuning import grid_search
 
-# ── Regularization hyperparameters selected by grid search ─────────────── #
-# grid_search() tunes reg_alpha and reg_lambda on the validation set and
-# returns the best combination. Using it here ensures the preprocessing
-# experiment uses validated values, not arbitrary ones.
-# The test set is never touched by grid_search().
+# these are the regularization hyperparameters selected by grid search
 print("Running hyperparameter tuning to select reg_alpha and reg_lambda...")
 BEST_ALPHA, BEST_LAMBDA = grid_search()
 print(f"\nUsing reg_alpha={BEST_ALPHA}, reg_lambda={BEST_LAMBDA} for all conditions.\n")
@@ -55,7 +51,7 @@ def run_condition(label, X_train, y_train, X_val, y_val, X_test, y_test,
                   use_smote=False, use_threshold_tuning=False):
     """Train one condition and evaluate it; return (f1, auc) for summary table."""
 
-    # ── Intervention A: SMOTE oversampling ───────────────────────────────── #
+    # SMOTE oversampling
     if use_smote:
         before = dict(zip(*np.unique(y_train, return_counts=True)))
         X_train, y_train = smote(X_train, y_train, k=5, random_state=42)
@@ -65,7 +61,7 @@ def run_condition(label, X_train, y_train, X_val, y_val, X_test, y_test,
     model = XGBClassifier(**XGB_PARAMS)
     model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
 
-    # ── Intervention B: threshold tuning ─────────────────────────────────── #
+    # threshold tuning
     threshold = 0.5
     if use_threshold_tuning:
         val_proba = model.predict_proba(X_val)[:, 1]
@@ -87,7 +83,7 @@ if __name__ == '__main__':
 
     results = {}
 
-    # ── 1. Baseline — no preprocessing interventions ─────────────────────── #
+    # Baseline — no preprocessing interventions
     print("\n── Baseline (no cleaning, no imbalance handling) ──")
     X, y, _ = preprocess(df.copy(), use_domain_cleaning=False)
     X_train, X_val, X_test, y_train, y_val, y_test, _ = split_and_scale(X, y)
@@ -96,7 +92,7 @@ if __name__ == '__main__':
         X_train, y_train, X_val, y_val, X_test, y_test,
     )
 
-    # ── 2. Domain cleaning only ───────────────────────────────────────────── #
+    # Domain cleaning only
     print("\n── Intervention: domain cleaning only ──")
     X, y, _ = preprocess(df.copy(), use_domain_cleaning=True)
     X_train, X_val, X_test, y_train, y_val, y_test, _ = split_and_scale(X, y)
@@ -105,7 +101,7 @@ if __name__ == '__main__':
         X_train, y_train, X_val, y_val, X_test, y_test,
     )
 
-    # ── 3. Domain cleaning + SMOTE ────────────────────────────────────────── #
+    # Domain cleaning + SMOTE
     print("\n── Intervention A: domain cleaning + SMOTE ──")
     results['+ SMOTE'] = run_condition(
         "Domain cleaning + SMOTE",
@@ -113,7 +109,7 @@ if __name__ == '__main__':
         use_smote=True,
     )
 
-    # ── 4. Domain cleaning + threshold tuning ────────────────────────────── #
+    # Domain cleaning + threshold tuning 
     print("\n── Intervention B: domain cleaning + threshold tuning ──")
     results['+ Threshold'] = run_condition(
         "Domain cleaning + threshold tuning",
@@ -121,7 +117,7 @@ if __name__ == '__main__':
         use_threshold_tuning=True,
     )
 
-    # ── 5. Domain cleaning + SMOTE + threshold tuning (full pipeline) ─────── #
+    # Domain cleaning + SMOTE + threshold tuning (full pipeline)
     print("\n── Full pipeline: domain cleaning + SMOTE + threshold tuning ──")
     results['Full pipeline'] = run_condition(
         "Full pipeline (cleaning + SMOTE + threshold)",
@@ -130,7 +126,7 @@ if __name__ == '__main__':
         use_threshold_tuning=True,
     )
 
-    # ── Summary table ─────────────────────────────────────────────────────── #
+    # summarisation table
     print("\n" + "=" * 72)
     print("SUMMARY")
     print(f"  {'Condition':<40} | {'F1':>6} | {'AUC':>6}")
@@ -154,12 +150,7 @@ if __name__ == '__main__':
     print("                    the other optimises the operating point.")
 
 
-# ═══════════════════════════════════════════════════════════════════════════ #
-#  REGULARIZATION EXPERIMENT                                                  #
-#  Design: unregularized baseline uses depth=8, min_child=1 to force         #
-#  clear overfitting. Each technique is added in isolation then combined.    #
-#  Gap metric: train AUC - test AUC (threshold-independent).                 #
-# ═══════════════════════════════════════════════════════════════════════════ #
+#regularization
 
 def regularization_experiment():
     from xgboost import XGBClassifier

@@ -42,27 +42,27 @@ if __name__ == '__main__':
     print(f"\n{'Feature Set':45s} | Acc   | F1    | AUC")
     print("-" * 75)
     
-    # Experiment 1: All features
+    # experiment 1: All features
     train_and_evaluate(X, y, "All 22 features")
     
-    # Experiment 2: Remove high-correlation productivity metrics
+    # experiment 2: Remove high-correlation productivity metrics
     drop_productivity = ['ACHIEVEMENT', 'SUPPORTING_OTHERS', 'TODO_COMPLETED', 
                          'PERSONAL_AWARDS', 'DONATION']
     X_no_prod = X.drop(columns=[c for c in drop_productivity if c in X.columns])
     train_and_evaluate(X_no_prod, y, "No productivity metrics (drop 5)")
     
-    # Experiment 3: Only stress/health signals
+    # experiment 3: Only stress/health signals
     stress_features = ['DAILY_STRESS', 'SLEEP_HOURS', 'LOST_VACATION', 
                        'DAILY_SHOUTING', 'BMI_RANGE', 'WEEKLY_MEDITATION',
                        'DAILY_STEPS', 'FRUITS_VEGGIES']
     X_stress = X[stress_features]
     train_and_evaluate(X_stress, y, "Stress/health signals only (8 features)")
     
-    # Experiment 4: Remove demographic features
+    # experiment 4: Remove demographic features
     X_no_demo = X.drop(columns=['AGE', 'GENDER'])
     train_and_evaluate(X_no_demo, y, "No demographic features")
     
-    # Experiment 5: Top 10 most important features only
+    # experiment 5: Top 10 most important features only
     top10 = ['TODO_COMPLETED', 'PLACES_VISITED', 'ACHIEVEMENT', 'SUPPORTING_OTHERS',
              'SUFFICIENT_INCOME', 'FLOW', 'TIME_FOR_PASSION', 'CORE_CIRCLE',
              'DAILY_STRESS', 'SLEEP_HOURS']

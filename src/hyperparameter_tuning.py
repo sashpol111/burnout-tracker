@@ -35,12 +35,10 @@ def grid_search():
     X, y, _ = preprocess(df.copy(), use_domain_cleaning=True)
     X_train, X_val, X_test, y_train, y_val, y_test, _ = split_and_scale(X, y)
 
-    # SMOTE only on training set — val and test stay as-is
+    # SMOTE only on training set, val and test stay as-is
     X_train_s, y_train_s = smote(X_train, y_train, random_state=42)
 
-    # ── Grid definition ────────────────────────────────────────────────── #
-    # Three values per parameter gives 9 combinations — enough to show a
-    # clear trend without excessive compute.
+    # this is the grid definition so three values per parameter gives 9 combinations
     alphas  = [0.0, 0.1, 1.0]    # L1 penalty
     lambdas = [0.1, 1.0, 5.0]    # L2 penalty
 
@@ -69,7 +67,7 @@ def grid_search():
         results.append((alpha, lam, val_auc, trees, model))
         print(f"  {alpha:>10.1f} | {lam:>10.1f} | {val_auc:>8.4f} | {trees:>6}")
 
-    # ── Best configuration ─────────────────────────────────────────────── #
+    # best configuration
     best = max(results, key=lambda x: x[2])
     best_alpha, best_lam, best_val_auc, best_trees, best_model = best
 
@@ -81,7 +79,7 @@ def grid_search():
     print(f"  Test AUC    : {test_auc:.4f}  (held out — reported once)")
     print(f"  Trees used  : {best_trees}")
 
-    # ── Trend analysis ─────────────────────────────────────────────────── #
+    # our trend analysis
     print("\n  Val AUC by reg_alpha (averaged across reg_lambda values):")
     for alpha in alphas:
         mean_auc = np.mean([r[2] for r in results if r[0] == alpha])

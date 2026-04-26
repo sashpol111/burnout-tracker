@@ -45,7 +45,6 @@ if __name__ == '__main__':
     evaluate(model, X_val, y_val, "Val")
     evaluate(model, X_test, y_test, "Test")
 
-    # Save model and scaler
     joblib.dump(model, 'models/xgboost_model.pkl')
     joblib.dump(scaler, 'models/scaler.pkl')
     joblib.dump(feature_cols, 'models/feature_cols.pkl')

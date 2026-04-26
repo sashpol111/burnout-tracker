@@ -54,7 +54,7 @@ if __name__ == '__main__':
     X, y, feature_cols = preprocess(df)
     X_train, X_val, X_test, y_train, y_val, y_test, scaler = split_and_scale(X, y)
 
-    # Convert to tensors
+    # convert to tensors
     X_train_t = torch.FloatTensor(X_train)
     y_train_t = torch.FloatTensor(y_train.values)
     X_val_t = torch.FloatTensor(X_val)
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     X_test_t = torch.FloatTensor(X_test)
     y_test_t = torch.FloatTensor(y_test.values)
 
-    # DataLoaders
+    # dataLoaders
     train_loader = DataLoader(TensorDataset(X_train_t, y_train_t), batch_size=64, shuffle=True)
     val_loader = DataLoader(TensorDataset(X_val_t, y_val_t), batch_size=64)
     test_loader = DataLoader(TensorDataset(X_test_t, y_test_t), batch_size=64)
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
     criterion = nn.BCELoss()
 
-    # Training loop
+    # training loop
     best_val_auc = 0
     train_losses, val_losses = [], []
     patience_counter = 0
@@ -108,7 +108,7 @@ if __name__ == '__main__':
                 print(f"Early stopping at epoch {epoch}")
                 break
 
-    # Load best model and evaluate
+    # loading best model and evaluating
     model.load_state_dict(torch.load('models/best_neural_net.pt'))
     train_acc, train_f1, train_auc = evaluate(model, train_loader, device)
     val_acc, val_f1, val_auc = evaluate(model, val_loader, device)

@@ -34,15 +34,14 @@ def smote(X, y, k=5, random_state=42):
 
     X_min = X[y == minority_class]
 
-    # ── k-nearest neighbours for each minority sample (Euclidean) ─────────── #
-    # Compute pairwise squared distances among minority samples
-    diffs    = X_min[:, None, :] - X_min[None, :, :]   # (n_min, n_min, n_feat)
-    sq_dists = (diffs ** 2).sum(axis=2)                 # (n_min, n_min)
-    np.fill_diagonal(sq_dists, np.inf)                  # exclude self
+    # k-nearest neighbours for each minority sample (Euclidean)
+    diffs    = X_min[:, None, :] - X_min[None, :, :]  
+    sq_dists = (diffs ** 2).sum(axis=2)               
+    np.fill_diagonal(sq_dists, np.inf)            
     k        = min(k, n_minority - 1)
-    nn_idx   = np.argsort(sq_dists, axis=1)[:, :k]     # (n_min, k)
+    nn_idx   = np.argsort(sq_dists, axis=1)[:, :k]  
 
-    # ── Generate synthetic samples ─────────────────────────────────────────── #
+    # generating synthetic samples
     synthetic = np.empty((n_synthetic, X.shape[1]))
     for i in range(n_synthetic):
         base     = rng.integers(0, n_minority)
@@ -53,6 +52,6 @@ def smote(X, y, k=5, random_state=42):
     X_res = np.vstack([X, synthetic])
     y_res = np.concatenate([y, np.full(n_synthetic, minority_class)])
 
-    # Shuffle so minority examples aren't all at the end
+    # shuffling so minority examples aren't all at the end
     idx   = rng.permutation(len(y_res))
     return X_res[idx], y_res[idx]
