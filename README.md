@@ -1,15 +1,3 @@
----
-title: Burnout Tracker
-emoji: 🔥
-colorFrom: red
-colorTo: yellow
-sdk: streamlit
-sdk_version: "1.44.0"
-app_file: app.py
-pinned: false
----
-
-
 # 🔥 Burnout Risk Tracker with AI Coaching
 
 A machine learning app that predicts burnout risk from lifestyle inputs and delivers personalized coaching through a large language model. Built with XGBoost, Llama 3.3 70B, and Streamlit.
