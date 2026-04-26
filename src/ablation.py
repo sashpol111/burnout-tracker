@@ -1,4 +1,3 @@
-# ablation.py
 # Ablation study varying feature groups to isolate each group's contribution.
 # Five conditions tested under identical split, model, and threshold tuning.
 
@@ -107,4 +106,9 @@ if __name__ == '__main__':
     print("  " + "-" * 58)
     for name, (f1, auc, _) in results.items():
         f1_drop  = ref_f1 - f1
-        auc_drop =
+        auc_drop = ref_auc - auc
+        print(f"  {name:<30s} | {f1_drop:+.3f}           | {auc_drop:+.3f}")
+
+    drops = {n: ref_f1 - r[0] for n, r in results.items() if n != 'All features'}
+    print(f"\n  Most important group : {max(drops, key=drops.get)}")
+    print(f"  Least important group: {min(drops, key=drops.get)}")

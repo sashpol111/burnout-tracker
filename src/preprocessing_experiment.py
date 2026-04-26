@@ -7,14 +7,8 @@ from data.data_loader import load_data, preprocess, split_and_scale
 from src.smote import smote
 from src.hyperparameter_tuning import grid_search
 
-# ── Regularization hyperparameters selected by grid search ───────────────── #
-# grid_search() tunes reg_alpha and reg_lambda on the validation set and
-# returns the best combination. Using it here ensures the preprocessing
-# experiment uses validated values, not arbitrary ones.
-# The test set is never touched by grid_search().
-print("Running hyperparameter tuning to select reg_alpha and reg_lambda...")
+# run at import time so BEST_ALPHA/BEST_LAMBDA are available to both experiments
 BEST_ALPHA, BEST_LAMBDA = grid_search()
-print(f"\nUsing reg_alpha={BEST_ALPHA}, reg_lambda={BEST_LAMBDA} for all conditions.\n")
 
 XGB_PARAMS = dict(
     n_estimators=100, max_depth=4, learning_rate=0.05,
@@ -25,12 +19,8 @@ XGB_PARAMS = dict(
 )
 
 
+# searches val set for threshold maximising F1 — test set never touched
 def find_best_threshold(y_true, proba):
-    """
-    Intervention B — inference-time class imbalance correction.
-    Search val-set for the threshold that maximises F1.
-    Test set is never touched during this search.
-    """
     best_thresh, best_f1 = 0.5, 0.0
     for t in np.linspace(0.1, 0.9, 81):
         preds = (proba >= t).astype(int)
@@ -41,11 +31,11 @@ def find_best_threshold(y_true, proba):
 
 
 def evaluate(model, X, y, name, threshold=0.5):
-    proba = model.predict_proba(X)[:, 1]
-    preds = (proba >= threshold).astype(int)
-    acc   = accuracy_score(y, preds)
-    f1    = f1_score(y, preds, zero_division=0)
-    auc   = roc_auc_score(y, proba)
+    proba  = model.predict_proba(X)[:, 1]
+    preds  = (proba >= threshold).astype(int)
+    acc    = accuracy_score(y, preds)
+    f1     = f1_score(y, preds, zero_division=0)
+    auc    = roc_auc_score(y, proba)
     suffix = f"  (thresh={threshold:.2f})" if threshold != 0.5 else ""
     print(f"  {name:48s} | F1: {f1:.3f} | AUC: {auc:.3f} | Acc: {acc:.3f}{suffix}")
     return acc, f1, auc
@@ -53,116 +43,51 @@ def evaluate(model, X, y, name, threshold=0.5):
 
 def run_condition(label, X_train, y_train, X_val, y_val, X_test, y_test,
                   use_smote=False, use_threshold_tuning=False):
-    """Train one condition and evaluate it; return (f1, auc) for summary table."""
-
-    # ── Intervention A: SMOTE oversampling ───────────────────────────────── #
     if use_smote:
-        before = dict(zip(*np.unique(y_train, return_counts=True)))
-        # .values ensures numpy array — smote() requires ndarray not Series
         X_train, y_train = smote(X_train, np.array(y_train), k=5, random_state=42)
-        after = dict(zip(*np.unique(y_train, return_counts=True)))
-        print(f"  [SMOTE] train set {before} → {after}")
 
     model = XGBClassifier(**XGB_PARAMS)
     model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
 
-    # ── Intervention B: threshold tuning ─────────────────────────────────── #
     threshold = 0.5
     if use_threshold_tuning:
         val_proba = model.predict_proba(X_val)[:, 1]
-        threshold, val_f1 = find_best_threshold(y_val, val_proba)
-        print(f"  [threshold search] best val F1={val_f1:.3f} at thresh={threshold:.2f}")
+        threshold, _ = find_best_threshold(y_val, val_proba)
 
     _, f1, auc = evaluate(model, X_test, y_test, label, threshold=threshold)
     return f1, auc
 
 
 def run_preprocessing_experiment(df):
-    """
-    Preprocessing experiment — isolates impact of domain cleaning,
-    SMOTE, and threshold tuning on F1 and AUC.
-    """
-    print("\n" + "=" * 72)
-    print("PREPROCESSING EXPERIMENT")
-    print("Target: top-30% of (DAILY_STRESS + DAILY_SHOUTING + LOST_VACATION)")
-    print("Two interventions: A=SMOTE oversampling  B=threshold tuning")
-    print("=" * 72)
-
     results = {}
 
-    # ── 1. Baseline — no preprocessing interventions ─────────────────────── #
-    print("\n── Baseline (no cleaning, no imbalance handling) ──")
     X, y, _ = preprocess(df.copy(), use_domain_cleaning=False)
     X_train, X_val, X_test, y_train, y_val, y_test, _ = split_and_scale(X, y)
     results['Baseline'] = run_condition(
-        "Baseline",
-        X_train, y_train, X_val, y_val, X_test, y_test,
-    )
+        "Baseline", X_train, y_train, X_val, y_val, X_test, y_test)
 
-    # ── 2. Domain cleaning only ───────────────────────────────────────────── #
-    print("\n── Intervention: domain cleaning only ──")
     X, y, _ = preprocess(df.copy(), use_domain_cleaning=True)
     X_train, X_val, X_test, y_train, y_val, y_test, _ = split_and_scale(X, y)
     results['Domain cleaning'] = run_condition(
-        "Domain cleaning (fix impossible Likert values)",
-        X_train, y_train, X_val, y_val, X_test, y_test,
-    )
-
-    # ── 3. Domain cleaning + SMOTE ────────────────────────────────────────── #
-    print("\n── Intervention A: domain cleaning + SMOTE ──")
+        "Domain cleaning", X_train, y_train, X_val, y_val, X_test, y_test)
     results['+ SMOTE'] = run_condition(
         "Domain cleaning + SMOTE",
-        X_train, y_train, X_val, y_val, X_test, y_test,
-        use_smote=True,
-    )
-
-    # ── 4. Domain cleaning + threshold tuning ────────────────────────────── #
-    print("\n── Intervention B: domain cleaning + threshold tuning ──")
+        X_train, y_train, X_val, y_val, X_test, y_test, use_smote=True)
     results['+ Threshold'] = run_condition(
         "Domain cleaning + threshold tuning",
-        X_train, y_train, X_val, y_val, X_test, y_test,
-        use_threshold_tuning=True,
-    )
-
-    # ── 5. Domain cleaning + SMOTE + threshold tuning (full pipeline) ─────── #
-    print("\n── Full pipeline: domain cleaning + SMOTE + threshold tuning ──")
+        X_train, y_train, X_val, y_val, X_test, y_test, use_threshold_tuning=True)
     results['Full pipeline'] = run_condition(
         "Full pipeline (cleaning + SMOTE + threshold)",
         X_train, y_train, X_val, y_val, X_test, y_test,
-        use_smote=True,
-        use_threshold_tuning=True,
-    )
+        use_smote=True, use_threshold_tuning=True)
 
-    # ── Summary table ─────────────────────────────────────────────────────── #
-    print("\n" + "=" * 72)
-    print("SUMMARY")
-    print(f"  {'Condition':<40} | {'F1':>6} | {'AUC':>6}")
-    print("  " + "-" * 58)
+    print(f"\n  {'Condition':<40} | {'F1':>6} | {'AUC':>6}")
     for name, (f1, auc) in results.items():
-        marker = " ◀ best F1" if f1 == max(v[0] for v in results.values()) else ""
+        marker = " ◀" if f1 == max(v[0] for v in results.values()) else ""
         print(f"  {name:<40} | {f1:>6.3f} | {auc:>6.3f}{marker}")
-
-    baseline_f1 = results['Baseline'][0]
-    best_f1     = max(v[0] for v in results.values())
-    print(f"\n  F1 improvement baseline → full pipeline: "
-          f"{baseline_f1:.3f} → {best_f1:.3f} "
-          f"(+{best_f1 - baseline_f1:.3f}, "
-          f"{(best_f1 - baseline_f1) / baseline_f1 * 100:.0f}% relative)")
-
-    print("\n── What each intervention addresses ──")
-    print("  Domain cleaning : fixes impossible Likert values (data quality)")
-    print("  SMOTE           : synthesises minority-class examples (training-time imbalance)")
-    print("  Threshold tuning: shifts decision boundary on val set (inference-time imbalance)")
-    print("  SMOTE + threshold: complementary — one fixes training distribution,")
-    print("                    the other optimises the operating point.")
 
 
 def regularization_experiment(df):
-    """
-    Regularization experiment — demonstrates L1, L2, and early stopping
-    reducing the train/test AUC gap on a deliberately overfit-prone baseline.
-    Gap metric: train AUC - test AUC (threshold-independent, lower = less overfit).
-    """
     from sklearn.metrics import roc_auc_score
 
     X, y, _ = preprocess(df.copy(), use_domain_cleaning=True)
@@ -188,25 +113,16 @@ def regularization_experiment(df):
         train_auc  = roc_auc_score(y_train_s, model.predict_proba(X_train_s)[:, 1])
         test_auc   = roc_auc_score(y_test,    model.predict_proba(X_test)[:, 1])
         gap        = train_auc - test_auc
-
-        print(f"  {name:<42s} | train: {train_auc:.3f} | test: {test_auc:.3f} "
-              f"| gap: {gap:.3f} | trees: {stopped_at}")
+        print(f"  {name:<42s} | train: {train_auc:.3f} | test: {test_auc:.3f} | gap: {gap:.3f} | trees: {stopped_at}")
         return gap, test_auc
 
-    print("\n" + "=" * 75)
-    print("REGULARIZATION EXPERIMENT")
-    print("Overfitting gap = train AUC - test AUC  (lower = less overfit)")
-    print("Unregularized baseline: depth=8, min_child=1  -> forces overfitting")
-    print("=" * 75)
-    print(f"  {'Condition':<42s} | train AUC | test AUC | gap   | trees")
-    print("  " + "-" * 70)
-
+    print(f"\n  {'Condition':<42s} | train AUC | test AUC | gap   | trees")
     r = {}
     r['No reg']     = fit_eval("No regularization  (depth=8, min_child=1)")
-    r['L2']         = fit_eval("L2 only  (reg_lambda=5.0)",         reg_lambda=5.0)
-    r['L1']         = fit_eval("L1 only  (reg_alpha=2.0)",          reg_alpha=2.0)
-    r['L1+L2']      = fit_eval("L1 + L2  (alpha=2.0, lambda=5.0)", reg_alpha=2.0, reg_lambda=5.0)
-    r['ES']         = fit_eval("Early stopping only  (depth=8)",    use_early_stopping=True)
+    r['L2']         = fit_eval("L2 only  (reg_lambda=5.0)",          reg_lambda=5.0)
+    r['L1']         = fit_eval("L1 only  (reg_alpha=2.0)",           reg_alpha=2.0)
+    r['L1+L2']      = fit_eval("L1 + L2  (alpha=2.0, lambda=5.0)",  reg_alpha=2.0, reg_lambda=5.0)
+    r['ES']         = fit_eval("Early stopping only  (depth=8)",     use_early_stopping=True)
     r['Production'] = fit_eval("L1 + L2 + early stopping  ◀ production",
                                 max_depth=4, min_child_weight=5,
                                 reg_alpha=BEST_ALPHA, reg_lambda=BEST_LAMBDA,
@@ -214,13 +130,7 @@ def regularization_experiment(df):
 
     bg, ba = r['No reg']
     fg, fa = r['Production']
-    print(f"\n  Overfitting gap : {bg:.3f} -> {fg:.3f}  ({(bg-fg)/bg*100:.0f}% reduction)")
-    print(f"  Test AUC        : {ba:.3f} -> {fa:.3f}  (generalisation improves)")
-    print("\n  L1 (reg_alpha) : drives irrelevant weights toward zero.")
-    print("  L2 (reg_lambda): shrinks all weights to reduce variance.")
-    print("  Early stopping : halts when val loss plateaus, avoids memorising noise.")
-    print("  Combined       : each addresses a different overfit source; together")
-    print("                   they give the largest gap reduction.")
+    print(f"\n  gap {bg:.3f} → {fg:.3f}  |  test AUC {ba:.3f} → {fa:.3f}")
 
 
 if __name__ == '__main__':

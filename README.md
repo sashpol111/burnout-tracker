@@ -94,7 +94,6 @@ burnout-tracker/
 │   ├── ablation.py                 # Feature group ablation study
 │   ├── error_analysis.py           # Error analysis with visualizations
 │   ├── llm_advisor.py              # Groq API integration for advice and chat
-│   └── visualize.py                # Standalone visualization plots
 ├── docs/
 │   ├── error_analysis.png
 ├── videos/

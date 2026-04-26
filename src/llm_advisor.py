@@ -9,9 +9,9 @@ MODEL  = "llama-3.3-70b-versatile"
 
 
 def get_burnout_advice(risk_score, top_risk_factors, user_inputs):
-    risk_level   = "high" if risk_score > 0.7 else "moderate" if risk_score > 0.4 else "low"
-    factors_str  = "\n".join([f"- {k}: {v}" for k, v in top_risk_factors.items()])
-    inputs_str   = "\n".join([f"- {k}: {v}" for k, v in user_inputs.items()])
+    risk_level  = "high" if risk_score > 0.7 else "moderate" if risk_score > 0.4 else "low"
+    factors_str = "\n".join([f"- {k}: {v}" for k, v in top_risk_factors.items()])
+    inputs_str  = "\n".join([f"- {k}: {v}" for k, v in user_inputs.items()])
 
     prompt = f"""You are a burnout prevention coach. A user has completed a burnout risk assessment.
 
@@ -35,37 +35,11 @@ Keep your response warm, specific, and actionable. Avoid generic advice."""
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=500,
-        model=MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=500,
     )
     return response.choices[0].message.content
 
 
-
 def get_burnout_chat_response(conversation_history, user_message, risk_context):
-    """
-    Multi-turn chat with Llama 3.3 70B via Groq.
-
-    The system prompt is passed as the first element of the messages list —
-    this is the correct format for the Groq API (and OpenAI-compatible APIs
-    generally). Passing `system=` as a top-level kwarg is NOT supported and
-    silently fails, which was the original bug causing the chat to not respond.
-
-    Pipeline position: receives XGBoost risk_context (score + top factors)
-    and injects it into every turn so the LLM always has the ML output in view.
-    """
-    """
-    Multi-turn chat with Llama 3.3 70B via Groq.
-
-    The system prompt is passed as the first element of the messages list —
-    this is the correct format for the Groq API (and OpenAI-compatible APIs
-    generally). Passing `system=` as a top-level kwarg is NOT supported and
-    silently fails, which was the original bug causing the chat to not respond.
-
-    Pipeline position: receives XGBoost risk_context (score + top factors)
-    and injects it into every turn so the LLM always has the ML output in view.
-    """
     system_prompt = f"""You are a compassionate burnout prevention coach with expertise in workplace wellness.
 You are having a conversation with someone who has just received their burnout risk assessment.
 
@@ -75,7 +49,6 @@ Their risk context:
 Be empathetic, specific, and practical. Reference their specific data when relevant.
 Keep responses concise (3-5 sentences) unless they ask for more detail."""
 
-    # Build the full message list: system first, then full conversation history
     messages = [
         {"role": "system", "content": system_prompt},
         *conversation_history,
@@ -90,7 +63,6 @@ Keep responses concise (3-5 sentences) unless they ask for more detail."""
 
     reply = response.choices[0].message.content
 
-    # Append both turns to history so context grows correctly across turns
     updated_history = conversation_history + [
         {"role": "user",      "content": user_message},
         {"role": "assistant", "content": reply},
