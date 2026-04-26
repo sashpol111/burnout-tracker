@@ -7,7 +7,6 @@ from data.data_loader import load_data, preprocess, split_and_scale
 from src.smote import smote
 from src.hyperparameter_tuning import grid_search
 
-# run at import time so BEST_ALPHA/BEST_LAMBDA are available to both experiments
 BEST_ALPHA, BEST_LAMBDA = grid_search()
 
 XGB_PARAMS = dict(
@@ -19,17 +18,6 @@ XGB_PARAMS = dict(
 )
 
 
-# searches val set for threshold maximising F1 — test set never touched
-def find_best_threshold(y_true, proba):
-    best_thresh, best_f1 = 0.5, 0.0
-    for t in np.linspace(0.1, 0.9, 81):
-        preds = (proba >= t).astype(int)
-        f1    = f1_score(y_true, preds, zero_division=0)
-        if f1 > best_f1:
-            best_f1, best_thresh = f1, t
-    return best_thresh, best_f1
-
-
 def evaluate(model, X, y, name, threshold=0.5):
     proba  = model.predict_proba(X)[:, 1]
     preds  = (proba >= threshold).astype(int)
@@ -39,6 +27,17 @@ def evaluate(model, X, y, name, threshold=0.5):
     suffix = f"  (thresh={threshold:.2f})" if threshold != 0.5 else ""
     print(f"  {name:48s} | F1: {f1:.3f} | AUC: {auc:.3f} | Acc: {acc:.3f}{suffix}")
     return acc, f1, auc
+
+
+# val set only — test set never touched during threshold search
+def find_best_threshold(y_true, proba):
+    best_thresh, best_f1 = 0.5, 0.0
+    for t in np.linspace(0.1, 0.9, 81):
+        preds = (proba >= t).astype(int)
+        f1    = f1_score(y_true, preds, zero_division=0)
+        if f1 > best_f1:
+            best_f1, best_thresh = f1, t
+    return best_thresh, best_f1
 
 
 def run_condition(label, X_train, y_train, X_val, y_val, X_test, y_test,
@@ -75,7 +74,8 @@ def run_preprocessing_experiment(df):
         X_train, y_train, X_val, y_val, X_test, y_test, use_smote=True)
     results['+ Threshold'] = run_condition(
         "Domain cleaning + threshold tuning",
-        X_train, y_train, X_val, y_val, X_test, y_test, use_threshold_tuning=True)
+        X_train, y_train, X_val, y_val, X_test, y_test,
+        use_threshold_tuning=True)
     results['Full pipeline'] = run_condition(
         "Full pipeline (cleaning + SMOTE + threshold)",
         X_train, y_train, X_val, y_val, X_test, y_test,
@@ -88,8 +88,6 @@ def run_preprocessing_experiment(df):
 
 
 def regularization_experiment(df):
-    from sklearn.metrics import roc_auc_score
-
     X, y, _ = preprocess(df.copy(), use_domain_cleaning=True)
     X_train, X_val, X_test, y_train, y_val, y_test, _ = split_and_scale(X, y)
     X_train_s, y_train_s = smote(X_train, np.array(y_train), random_state=42)

@@ -1,0 +1,46 @@
+[domain cleaning] Fixed 2577 errors: PERSONAL_AWARDS (545 values → [1,10]), WEEKLY_MEDITATION (313 values → [1,10]), SLEEP_HOURS (1 values → [1,10]), SOCIAL_NETWORK (116 values → [1,10]), TODO_COMPLETED (544 values → [1,10]), CORE_CIRCLE (312 values → [1,10]), SUPPORTING_OTHERS (746 values → [1,10])
+[unified dataset] 16131 rows | positive rate=34.2% | class ratio 1:1.9
+Train: (11291, 23), Val: (2420, 23), Test: (2420, 23)
+   reg_alpha | reg_lambda |  val AUC |  trees
+  --------------------------------------------
+         0.0 |        0.1 |   0.6767 |    299
+         0.0 |        1.0 |   0.6758 |    292
+         0.0 |        5.0 |   0.6772 |    293
+         0.1 |        0.1 |   0.6777 |    259
+         0.1 |        1.0 |   0.6788 |    297
+         0.1 |        5.0 |   0.6790 |    300
+         1.0 |        0.1 |   0.6777 |    299
+         1.0 |        1.0 |   0.6770 |    299
+         1.0 |        5.0 |   0.6788 |    299
+
+  best: reg_alpha=0.1, reg_lambda=5.0 | val AUC=0.6790 | test AUC=0.6560
+[unified dataset] 16131 rows | positive rate=34.2% | class ratio 1:1.9
+Train: (11291, 23), Val: (2420, 23), Test: (2420, 23)
+  Baseline                                         | F1: 0.240 | AUC: 0.650 | Acc: 0.666
+[domain cleaning] Fixed 2577 errors: PERSONAL_AWARDS (545 values → [1,10]), WEEKLY_MEDITATION (313 values → [1,10]), SLEEP_HOURS (1 values → [1,10]), SOCIAL_NETWORK (116 values → [1,10]), TODO_COMPLETED (544 values → [1,10]), CORE_CIRCLE (312 values → [1,10]), SUPPORTING_OTHERS (746 values → [1,10])
+[unified dataset] 16131 rows | positive rate=34.2% | class ratio 1:1.9
+Train: (11291, 23), Val: (2420, 23), Test: (2420, 23)
+  Domain cleaning                                  | F1: 0.252 | AUC: 0.649 | Acc: 0.668
+  Domain cleaning + SMOTE                          | F1: 0.366 | AUC: 0.653 | Acc: 0.651
+  Domain cleaning + threshold tuning               | F1: 0.538 | AUC: 0.649 | Acc: 0.550  (thresh=0.29)
+  Full pipeline (cleaning + SMOTE + threshold)     | F1: 0.542 | AUC: 0.653 | Acc: 0.550  (thresh=0.36)
+
+  Condition                                |     F1 |    AUC
+  Baseline                                 |  0.240 |  0.650
+  Domain cleaning                          |  0.252 |  0.649
+  + SMOTE                                  |  0.366 |  0.653
+  + Threshold                              |  0.538 |  0.649
+  Full pipeline                            |  0.542 |  0.653 ◀
+[domain cleaning] Fixed 2577 errors: PERSONAL_AWARDS (545 values → [1,10]), WEEKLY_MEDITATION (313 values → [1,10]), SLEEP_HOURS (1 values → [1,10]), SOCIAL_NETWORK (116 values → [1,10]), TODO_COMPLETED (544 values → [1,10]), CORE_CIRCLE (312 values → [1,10]), SUPPORTING_OTHERS (746 values → [1,10])
+[unified dataset] 16131 rows | positive rate=34.2% | class ratio 1:1.9
+Train: (11291, 23), Val: (2420, 23), Test: (2420, 23)
+
+  Condition                                  | train AUC | test AUC | gap   | trees
+  No regularization  (depth=8, min_child=1)  | train: 1.000 | test: 0.667 | gap: 0.333 | trees: 500
+  L2 only  (reg_lambda=5.0)                  | train: 0.999 | test: 0.664 | gap: 0.336 | trees: 500
+  L1 only  (reg_alpha=2.0)                   | train: 1.000 | test: 0.669 | gap: 0.330 | trees: 500
+  L1 + L2  (alpha=2.0, lambda=5.0)           | train: 0.998 | test: 0.664 | gap: 0.334 | trees: 500
+  Early stopping only  (depth=8)             | train: 0.973 | test: 0.671 | gap: 0.302 | trees: 144
+  L1 + L2 + early stopping  ◀ production     | train: 0.867 | test: 0.656 | gap: 0.212 | trees: 306
+
+  gap 0.333 → 0.212  |  test AUC 0.667 → 0.656
