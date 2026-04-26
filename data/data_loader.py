@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 BURNOUT_SYMPTOM_COLS = ['DAILY_STRESS', 'DAILY_SHOUTING', 'LOST_VACATION']
-TARGET_ADJACENT_COLS = BURNOUT_SYMPTOM_COLS + ['WORK_LIFE_BALANCE_SCORE', 'BURNOUT_RISK']
+EXCLUDED_COLUMNS = BURNOUT_SYMPTOM_COLS + ['WORK_LIFE_BALANCE_SCORE', 'BURNOUT_RISK']
 
 # 0 is an impossible response for these
 LIKERT_1_10 = [
@@ -104,7 +104,7 @@ def preprocess(df, use_domain_cleaning=False):
                                    + df['SLEEP_HOURS']
                                    + df['TODO_COMPLETED'])
 
-    feature_cols = [c for c in df.columns if c not in TARGET_ADJACENT_COLS]
+    feature_cols = [c for c in df.columns if c not in EXCLUDED_COLUMNS]
     return df[feature_cols], df['BURNOUT_RISK'], feature_cols
 
 
