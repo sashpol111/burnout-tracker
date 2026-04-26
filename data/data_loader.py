@@ -23,8 +23,9 @@ MAX_OOR_RATE = 0.05
 def load_data(path='data/unified_dataset.csv'):
     return pd.read_csv(path)
 
+
 def _apply_domain_cleaning(df):
-    # skips columns where OOR rate > MAX_OOR_RATE 
+    # skips columns where OOR rate > MAX_OOR_RATE
     total_fixed, clamped_cols, skipped_cols = 0, [], []
 
     for col, lo, hi in (
@@ -51,48 +52,16 @@ def _apply_domain_cleaning(df):
         print(f"[domain cleaning] Skipped: {'; '.join(skipped_cols)}")
 
 
-def preprocess(df, use_domain_cleaning=False):
-    # detect source: kaggle raw has Timestamp, string GENDER/AGE, symptom cols
-    is_kaggle_raw = (
-        'Timestamp' in df.columns or
-        ('GENDER' in df.columns and df['GENDER'].dtype == object) or
-        ('BURNOUT_RISK' not in df.columns and
-         all(c in df.columns for c in BURNOUT_SYMPTOM_COLS))
-    )
+def preprocess(df, use_domain_cleaning=True):
+    df = df.drop(columns=['source'], errors='ignore')
+    df = df.apply(pd.to_numeric, errors='coerce').dropna()
 
-    if is_kaggle_raw:
-        df = df.drop(columns=['Timestamp'], errors='ignore')
+    if use_domain_cleaning:
+        _apply_domain_cleaning(df)
 
-        if 'GENDER' in df.columns and df['GENDER'].dtype == object:
-            df['GENDER'] = df['GENDER'].map({'Female': 0, 'Male': 1})
-
-        if 'AGE' in df.columns and df['AGE'].dtype == object:
-            df['AGE'] = df['AGE'].map({'Less than 20': 0, '21 to 35': 1,
-                                       '36 to 50': 2,    '51 or more': 3})
-
-        df = df.apply(pd.to_numeric, errors='coerce').dropna()
-
-        if use_domain_cleaning:
-            _apply_domain_cleaning(df)
-
-        burnout_index      = df[BURNOUT_SYMPTOM_COLS].sum(axis=1)
-        threshold          = burnout_index.quantile(0.70)
-        df['BURNOUT_RISK'] = (burnout_index >= threshold).astype(int)
-        pos_rate           = df['BURNOUT_RISK'].mean()
-        print(f"[target] threshold={threshold:.1f} | positive rate={pos_rate:.1%} | "
-              f"class ratio 1:{(1-pos_rate)/pos_rate:.1f}")
-
-    else:
-        # unified dataset: drop text col before coerce
-        df = df.drop(columns=['source'], errors='ignore')
-        df = df.apply(pd.to_numeric, errors='coerce').dropna()
-
-        if use_domain_cleaning:
-            _apply_domain_cleaning(df)
-
-        pos_rate = df['BURNOUT_RISK'].mean()
-        print(f"[unified dataset] {len(df)} rows | positive rate={pos_rate:.1%} | "
-              f"class ratio 1:{(1-pos_rate)/pos_rate:.1f}")
+    pos_rate = df['BURNOUT_RISK'].mean()
+    print(f"[unified dataset] {len(df)} rows | positive rate={pos_rate:.1%} | "
+          f"class ratio 1:{(1-pos_rate)/pos_rate:.1f}")
 
     df['RECOVERY_SCORE']       = (df['SLEEP_HOURS']
                                    + df['TIME_FOR_PASSION']
@@ -125,13 +94,13 @@ def split_and_scale(X, y):
 
 if __name__ == '__main__':
     df = load_data()
-    X, y, cols = preprocess(df, use_domain_cleaning=True)
+    X, y, cols = preprocess(df)
     split_and_scale(X, y)
     print(f"Features ({len(cols)}): {cols}")
 
     if __import__('os').path.exists('data/unified_dataset.csv'):
         df2 = load_data()
-        X2, y2, cols2 = preprocess(df2, use_domain_cleaning=True)
+        X2, y2, cols2 = preprocess(df2)
         split_and_scale(X2, y2)
     else:
         build_unified_dataset()
