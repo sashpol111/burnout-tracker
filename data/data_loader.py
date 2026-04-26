@@ -84,6 +84,8 @@ def split_and_scale(X, y):
     X_val, X_test, y_val, y_test = train_test_split(
         X_temp, y_temp, test_size=0.5, random_state=42)
 
+    # StandardScaler required for SMOTE's Euclidean distance computation;
+    # fit on train only to prevent leakage into val/test
     scaler  = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_val   = scaler.transform(X_val)
