@@ -35,11 +35,26 @@ Keep your response warm, specific, and actionable. Avoid generic advice."""
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=500,
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=500,
     )
     return response.choices[0].message.content
 
 
+
 def get_burnout_chat_response(conversation_history, user_message, risk_context):
+    """
+    Multi-turn chat with Llama 3.3 70B via Groq.
+
+    The system prompt is passed as the first element of the messages list —
+    this is the correct format for the Groq API (and OpenAI-compatible APIs
+    generally). Passing `system=` as a top-level kwarg is NOT supported and
+    silently fails, which was the original bug causing the chat to not respond.
+
+    Pipeline position: receives XGBoost risk_context (score + top factors)
+    and injects it into every turn so the LLM always has the ML output in view.
+    """
     """
     Multi-turn chat with Llama 3.3 70B via Groq.
 
