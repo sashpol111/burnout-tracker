@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
-import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from data.data_pipeline import build_unified_dataset 
 
 BURNOUT_SYMPTOM_COLS = ['DAILY_STRESS', 'DAILY_SHOUTING', 'LOST_VACATION']
 EXCLUDED_COLUMNS = BURNOUT_SYMPTOM_COLS + ['WORK_LIFE_BALANCE_SCORE', 'BURNOUT_RISK']
@@ -134,4 +134,4 @@ if __name__ == '__main__':
         X2, y2, cols2 = preprocess(df2, use_domain_cleaning=True)
         split_and_scale(X2, y2)
     else:
-        print("unified_dataset.csv not found — run data/data_pipeline.py first")
+        build_unified_dataset()
