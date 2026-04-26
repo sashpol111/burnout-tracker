@@ -61,7 +61,7 @@ The overfitting gap dropped 36% while test AUC stayed comparable, confirming reg
 
 **Inference time:** 3-5 ms per prediction, measured via `time.perf_counter()` and displayed in the app UI after each assessment.
 
-**Error analysis:** The model uses a tuned threshold of 0.36 on a test set of 2,420 samples, producing 187 false negatives and 902 false positives. The model prioritizes recall for high risk cases (0.77) over precision (0.42), which fits a burnout screening context where missing a real case is more costly than a false alarm. The hardest feature to classify around is TODO_COMPLETED, which shows the largest gap between missed and caught cases. Borderline predictions within 0.10 of the threshold achieve 53.8% accuracy versus 56.8% for confident predictions, confirming errors concentrate near the decision boundary. Full visualizations in `models/error_analysis.png`.
+**Error analysis:** The model uses a tuned threshold of 0.36 on a test set of 2,420 samples, producing 187 false negatives and 902 false positives. The model prioritizes recall for high risk cases (0.77) over precision (0.42), which fits a burnout screening context where missing a real case is more costly than a false alarm. The hardest feature to classify around is TODO_COMPLETED, which shows the largest gap between missed and caught cases. Borderline predictions within 0.10 of the threshold achieve 53.8% accuracy versus 56.8% for confident predictions, confirming errors concentrate near the decision boundary. Full visualizations in `docs/error_analysis.png`.
 
 ---
 
@@ -74,11 +74,6 @@ burnout-tracker/
 │   ├── data_pipeline.py            # Multi-API data collection pipeline (Kaggle 
                                     +  synthetic + HF)
 │   └── unified_dataset.csv         # Merged dataset created by the pipeline 
-├── models/
-│   ├── error_analysis.png
-│   ├── feature_importance.png
-│   ├── model_comparison.png
-│   └── risk_distribution.png
 ├── src/
 │   ├── data_loader.py              # Preprocessing, feature engineering, splitting
 │   ├── smote.py                    # Custom SMOTE (Chawla et al. 2002)
@@ -89,13 +84,13 @@ burnout-tracker/
 │   ├── llm_advisor.py              # Groq API integration for advice and chat
 │   └── visualize.py                # Standalone visualization plots
 ├── docs/
+│   ├── error_analysis.png
 ├── videos/
 │   └── README.md                   # Links to demo and walkthrough videos
 ├── ATTRIBUTION.md
 ├── README.md
 ├── SETUP.md
 ├── requirements.txt
-└── environment.yml
 ```
 
 ---
