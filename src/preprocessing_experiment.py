@@ -3,11 +3,11 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 import sys
 sys.path.insert(0, '.')
-from src.data_loader import load_data, preprocess, split_and_scale
+from data.data_loader import load_data, preprocess, split_and_scale
 from src.smote import smote
 from src.hyperparameter_tuning import grid_search
 
-# ── Regularization hyperparameters selected by grid search ─────────────── #
+# ── Regularization hyperparameters selected by grid search ───────────────── #
 # grid_search() tunes reg_alpha and reg_lambda on the validation set and
 # returns the best combination. Using it here ensures the preprocessing
 # experiment uses validated values, not arbitrary ones.
@@ -58,7 +58,8 @@ def run_condition(label, X_train, y_train, X_val, y_val, X_test, y_test,
     # ── Intervention A: SMOTE oversampling ───────────────────────────────── #
     if use_smote:
         before = dict(zip(*np.unique(y_train, return_counts=True)))
-        X_train, y_train = smote(X_train, y_train, k=5, random_state=42)
+        # .values ensures numpy array — smote() requires ndarray not Series
+        X_train, y_train = smote(X_train, np.array(y_train), k=5, random_state=42)
         after = dict(zip(*np.unique(y_train, return_counts=True)))
         print(f"  [SMOTE] train set {before} → {after}")
 
@@ -76,9 +77,11 @@ def run_condition(label, X_train, y_train, X_val, y_val, X_test, y_test,
     return f1, auc
 
 
-if __name__ == '__main__':
-    df = load_data()
-
+def run_preprocessing_experiment(df):
+    """
+    Preprocessing experiment — isolates impact of domain cleaning,
+    SMOTE, and threshold tuning on F1 and AUC.
+    """
     print("\n" + "=" * 72)
     print("PREPROCESSING EXPERIMENT")
     print("Target: top-30% of (DAILY_STRESS + DAILY_SHOUTING + LOST_VACATION)")
@@ -154,21 +157,17 @@ if __name__ == '__main__':
     print("                    the other optimises the operating point.")
 
 
-# ═══════════════════════════════════════════════════════════════════════════ #
-#  REGULARIZATION EXPERIMENT                                                  #
-#  Design: unregularized baseline uses depth=8, min_child=1 to force         #
-#  clear overfitting. Each technique is added in isolation then combined.    #
-#  Gap metric: train AUC - test AUC (threshold-independent).                 #
-# ═══════════════════════════════════════════════════════════════════════════ #
-
-def regularization_experiment():
-    from xgboost import XGBClassifier
+def regularization_experiment(df):
+    """
+    Regularization experiment — demonstrates L1, L2, and early stopping
+    reducing the train/test AUC gap on a deliberately overfit-prone baseline.
+    Gap metric: train AUC - test AUC (threshold-independent, lower = less overfit).
+    """
     from sklearn.metrics import roc_auc_score
 
-    df = load_data()
     X, y, _ = preprocess(df.copy(), use_domain_cleaning=True)
     X_train, X_val, X_test, y_train, y_val, y_test, _ = split_and_scale(X, y)
-    X_train_s, y_train_s = smote(X_train, y_train, random_state=42)
+    X_train_s, y_train_s = smote(X_train, np.array(y_train), random_state=42)
 
     def fit_eval(name, max_depth=8, min_child_weight=1,
                  reg_alpha=0, reg_lambda=0,
@@ -181,7 +180,8 @@ def regularization_experiment():
             eval_metric='logloss', random_state=42,
             **(dict(early_stopping_rounds=20) if use_early_stopping else {}),
         )
-        fit_kw = dict(eval_set=[(X_val, y_val)], verbose=False) if use_early_stopping else dict(verbose=False)
+        fit_kw = dict(eval_set=[(X_val, y_val)], verbose=False) \
+                 if use_early_stopping else dict(verbose=False)
         model.fit(X_train_s, y_train_s, **fit_kw)
 
         stopped_at = (model.best_iteration + 1) if use_early_stopping else n_estimators
@@ -189,7 +189,8 @@ def regularization_experiment():
         test_auc   = roc_auc_score(y_test,    model.predict_proba(X_test)[:, 1])
         gap        = train_auc - test_auc
 
-        print(f"  {name:<42s} | train: {train_auc:.3f} | test: {test_auc:.3f} | gap: {gap:.3f} | trees: {stopped_at}")
+        print(f"  {name:<42s} | train: {train_auc:.3f} | test: {test_auc:.3f} "
+              f"| gap: {gap:.3f} | trees: {stopped_at}")
         return gap, test_auc
 
     print("\n" + "=" * 75)
@@ -201,15 +202,15 @@ def regularization_experiment():
     print("  " + "-" * 70)
 
     r = {}
-    r['No reg']      = fit_eval("No regularization  (depth=8, min_child=1)")
-    r['L2']          = fit_eval("L2 only  (reg_lambda=5.0)",          reg_lambda=5.0)
-    r['L1']          = fit_eval("L1 only  (reg_alpha=2.0)",           reg_alpha=2.0)
-    r['L1+L2']       = fit_eval("L1 + L2  (alpha=2.0, lambda=5.0)",  reg_alpha=2.0, reg_lambda=5.0)
-    r['ES']          = fit_eval("Early stopping only  (depth=8)",     use_early_stopping=True)
-    r['Production']  = fit_eval("L1 + L2 + early stopping  ◀ production",
-                                   max_depth=4, min_child_weight=5,
-                                   reg_alpha=BEST_ALPHA, reg_lambda=BEST_LAMBDA,
-                                   use_early_stopping=True)
+    r['No reg']     = fit_eval("No regularization  (depth=8, min_child=1)")
+    r['L2']         = fit_eval("L2 only  (reg_lambda=5.0)",         reg_lambda=5.0)
+    r['L1']         = fit_eval("L1 only  (reg_alpha=2.0)",          reg_alpha=2.0)
+    r['L1+L2']      = fit_eval("L1 + L2  (alpha=2.0, lambda=5.0)", reg_alpha=2.0, reg_lambda=5.0)
+    r['ES']         = fit_eval("Early stopping only  (depth=8)",    use_early_stopping=True)
+    r['Production'] = fit_eval("L1 + L2 + early stopping  ◀ production",
+                                max_depth=4, min_child_weight=5,
+                                reg_alpha=BEST_ALPHA, reg_lambda=BEST_LAMBDA,
+                                use_early_stopping=True)
 
     bg, ba = r['No reg']
     fg, fa = r['Production']
@@ -223,4 +224,6 @@ def regularization_experiment():
 
 
 if __name__ == '__main__':
-    regularization_experiment()
+    df = load_data()
+    run_preprocessing_experiment(df)
+    regularization_experiment(df)

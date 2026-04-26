@@ -41,7 +41,7 @@ def load_data(path='data/unified_dataset.csv',
         Pass force_rebuild=True to re-fetch from APIs.
     """
     if use_unified:
-        from src.data_pipeline import build_unified_dataset
+        from data.data_pipeline import build_unified_dataset
         df = build_unified_dataset(force_rebuild=force_rebuild)
         return df.drop(columns=['source'], errors='ignore')
     df = pd.read_csv(path)
