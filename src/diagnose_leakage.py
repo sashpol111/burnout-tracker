@@ -1,22 +1,5 @@
-"""
-diagnose_leakage.py
+# Documents the design decision to replace WORK_LIFE_BALANCE_SCORE with a burnout composite target.
 
-Documents the design decision to replace WORK_LIFE_BALANCE_SCORE as the
-prediction target with a burnout symptom composite.
-
-Rubric: "Documented a design decision where you chose between ML approaches
-based on technical tradeoffs with evidence supporting the decision" (3 pts)
-
-Findings:
-  - WORK_LIFE_BALANCE_SCORE has R²=1.0 with all input features, meaning it
-    is an exact linear combination of those features. Using it as a target
-    produces a near-deterministic classification task (AUC=0.994) that does
-    not reflect genuine predictive modeling.
-  - The replacement target — top 30% of (DAILY_STRESS + DAILY_SHOUTING +
-    LOST_VACATION) — has R²=0.2-0.3 with the wellness feature set, producing
-    a genuinely predictive task (AUC~0.656) where the model learns real
-    signal from upstream lifestyle behaviors.
-"""
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -25,13 +8,12 @@ from sklearn.metrics import r2_score
 import sys
 sys.path.insert(0, '.')
 
-from src.data_loader import BURNOUT_SYMPTOM_COLS
+from data.data_loader import BURNOUT_SYMPTOM_COLS
 
 
 def run_leakage_diagnostic():
     df = pd.read_csv('data/Wellbeing_and_lifestyle_data_Kaggle.csv')
 
-    # Basic encode to numeric
     df = df.drop(columns=['Timestamp'], errors='ignore')
     df['GENDER'] = df['GENDER'].map({'Female': 0, 'Male': 1})
     df['AGE']    = df['AGE'].map({'Less than 20': 0, '21 to 35': 1,
@@ -41,7 +23,7 @@ def run_leakage_diagnostic():
     all_features = [c for c in df.columns
                     if c not in ['WORK_LIFE_BALANCE_SCORE'] + BURNOUT_SYMPTOM_COLS]
 
-    # ── Test 1: Can features linearly reconstruct WORK_LIFE_BALANCE_SCORE? ── #
+    # test 1: check if features linearly reconstruct WORK_LIFE_BALANCE_SCORE
     X    = df[all_features].values
     y    = df['WORK_LIFE_BALANCE_SCORE'].values
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -54,7 +36,7 @@ def run_leakage_diagnostic():
     print(f"  R² = {r2:.4f}")
     print(f"  {'LEAK CONFIRMED — trivial classification task' if r2 > 0.99 else 'No leakage detected'}")
 
-    # ── Test 2: Can features reconstruct the burnout symptom composite? ── #
+    # test 2: check if features reconstruct the burnout composite
     burnout_index = df[BURNOUT_SYMPTOM_COLS].sum(axis=1).values
     feat_vals     = df[all_features].values
     X_tr2, X_te2, y_tr2, y_te2 = train_test_split(
@@ -65,7 +47,7 @@ def run_leakage_diagnostic():
     print(f"  R² = {r2_new:.4f}")
     print(f"  {'OK — genuine prediction task' if r2_new < 0.5 else 'WARNING — check target construction'}")
 
-    # ── Test 3: Class distribution of new target ──────────────────────── #
+    # test 3: class balance of new binary target (top 30%)
     threshold    = pd.Series(burnout_index).quantile(0.70)
     burnout_risk = (burnout_index >= threshold).astype(int)
     pos_rate     = burnout_risk.mean()
@@ -75,7 +57,6 @@ def run_leakage_diagnostic():
     print(f"  Positive rate       : {pos_rate:.1%}")
     print(f"  Class ratio         : 1:{(1-pos_rate)/pos_rate:.1f}")
 
-    # ── Summary ───────────────────────────────────────────────────────── #
     print(f"\n{'='*60}")
     print("DESIGN DECISION SUMMARY")
     print(f"{'='*60}")
