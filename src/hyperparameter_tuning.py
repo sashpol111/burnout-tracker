@@ -26,7 +26,7 @@ sys.path.insert(0, '.')
 
 from xgboost import XGBClassifier
 from sklearn.metrics import roc_auc_score
-from src.data_loader import load_data, preprocess, split_and_scale
+from data.data_loader import load_data, preprocess, split_and_scale
 from src.smote import smote
 
 

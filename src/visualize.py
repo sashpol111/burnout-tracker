@@ -5,7 +5,7 @@ import numpy as np
 import joblib
 import sys
 sys.path.insert(0, '.')
-from src.data_loader import load_data, preprocess, split_and_scale
+from data.data_loader import load_data, preprocess, split_and_scale
 
 def plot_feature_importance(model, feature_cols):
     importance = model.feature_importances_

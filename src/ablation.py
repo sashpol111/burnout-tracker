@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import sys
 sys.path.insert(0, '.')
-from src.data_loader import load_data, preprocess
+from data.data_loader import load_data, preprocess
 
 def train_and_evaluate(X, y, label):
     X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
