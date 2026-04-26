@@ -26,7 +26,7 @@ sys.path.insert(0, '.')
 
 from xgboost import XGBClassifier
 from sklearn.metrics import roc_auc_score
-from src.data_loader import load_data, preprocess, split_and_scale
+from data.data_loader import load_data, preprocess, split_and_scale
 from src.smote import smote
 
 
@@ -36,7 +36,7 @@ def grid_search():
     X_train, X_val, X_test, y_train, y_val, y_test, _ = split_and_scale(X, y)
 
     # SMOTE only on training set — val and test stay as-is
-    X_train_s, y_train_s = smote(X_train, y_train, random_state=42)
+    X_train_s, y_train_s = smote(X_train, np.array(y_train), random_state=42)
 
     # ── Grid definition ────────────────────────────────────────────────── #
     # Three values per parameter gives 9 combinations — enough to show a
