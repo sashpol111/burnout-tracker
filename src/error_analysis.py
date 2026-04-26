@@ -21,7 +21,7 @@ os.makedirs('models', exist_ok=True)
 
 from xgboost import XGBClassifier
 from sklearn.metrics import confusion_matrix, classification_report
-from src.data_loader import load_data, preprocess, split_and_scale
+from data.data_loader import load_data, preprocess, split_and_scale
 from src.smote import smote
 from src.hyperparameter_tuning import grid_search
 from src.preprocessing_experiment import find_best_threshold
