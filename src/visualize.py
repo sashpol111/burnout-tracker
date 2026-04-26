@@ -16,31 +16,7 @@ import numpy as np
 import os
 import sys
 sys.path.insert(0, '.')
-os.makedirs('models', exist_ok=True)
-
-from xgboost import XGBClassifier
-from sklearn.metrics import roc_auc_score, f1_score
-
 from data.data_loader import load_data, preprocess, split_and_scale
-from src.smote import smote
-from src.hyperparameter_tuning import grid_search
-from src.preprocessing_experiment import (
-    find_best_threshold, BEST_ALPHA, BEST_LAMBDA, run_condition
-)
-
-
-def train_model(X_train, y_train, X_val, y_val):
-    """Train production model and return it."""
-    X_train_s, y_train_s = smote(X_train, np.array(y_train), random_state=42)
-    model = XGBClassifier(
-        n_estimators=100, max_depth=4, learning_rate=0.05,
-        subsample=0.7, colsample_bytree=0.7, min_child_weight=5,
-        reg_alpha=BEST_ALPHA, reg_lambda=BEST_LAMBDA,
-        eval_metric='logloss', early_stopping_rounds=15, random_state=42,
-    )
-    model.fit(X_train_s, y_train_s, eval_set=[(X_val, y_val)], verbose=False)
-    return model
-
 
 def plot_feature_importance(model, feature_cols):
     """Bar chart of XGBoost feature importances — live from trained model."""
