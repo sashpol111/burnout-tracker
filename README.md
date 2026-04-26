@@ -98,6 +98,28 @@ burnout-tracker/
 This tool is for informational purposes only and is not a substitute for professional medical or psychological advice.
 
 ## 👩‍💻 Individual Contributions
-Sasha Polakov:
-Katherine Yu:
+
+**Sasha Polakov:**
+- Project architecture and system design
+- XGBoost model training and regularization
+- Neural network design and training (PyTorch)
+- LLM integration (Groq API, multi-turn chat)
+- Streamlit app development
+- Synthetic data generation pipeline
+- Ablation study and hyperparameter tuning
+- DistilBERT fine-tuning
+- Deployment to Hugging Face Spaces
+- Error analysis and visualizations
+
+**Katherine Yu:**
+- Label leakage diagnosis and fix (burnout index from Maslach dimensions)
+- SMOTE implementation from scratch
+- Domain cleaning pipeline (adaptive Likert validation)
+- Threshold tuning experiment
+- Feature engineering (4 composite features)
+- Data pipeline (unified dataset from 3 sources)
+- Preprocessing experiment documentation
+- SETUP.md
+- Hyperparameter grid search
+
 GitHub: https://github.com/sashpol111
